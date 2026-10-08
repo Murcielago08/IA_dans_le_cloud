@@ -1,1 +1,5 @@
-ia_cloud
+ia_cloud/
+data/
+.venv/
+__pycache__/
+.pytest_cache/
