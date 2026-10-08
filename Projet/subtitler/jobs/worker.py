@@ -8,7 +8,8 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from subtitler import media, subtitles
+from subtitler import media
+from subtitler import subtitles
 from subtitler.jobs.models import RESULT_FILENAMES, OutputKind
 from subtitler.jobs.store import JobStore
 from subtitler.transcription.base import Transcriber

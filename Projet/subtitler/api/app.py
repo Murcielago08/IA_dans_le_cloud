@@ -13,7 +13,8 @@ from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from subtitler import __version__, media, transcription
+from subtitler import __version__, media
+from subtitler import transcription
 from subtitler.api.schemas import AppInfo, JobOut, Stats
 from subtitler.config import Settings
 from subtitler.jobs.models import (
