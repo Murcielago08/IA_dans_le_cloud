@@ -33,6 +33,7 @@ class AppInfo(BaseModel):
     default_model: str
     allowed_outputs: dict[InputKind, list[OutputKind]]
     max_upload_mb: int
+    speakers_enabled: bool
 
 
 class KindCounts(BaseModel):

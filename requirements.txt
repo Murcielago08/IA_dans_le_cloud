@@ -42,3 +42,9 @@ transformers==5.18.0
 typer==0.27.2
 typing_extensions==4.16.0
 uvicorn[standard]>=0.30
+
+# Optionnel : identification du locuteur (SUBTITLER_ENABLE_SPEAKERS=true).
+# Nécessite d'accepter les conditions du modèle sur huggingface.co puis de
+# fournir un jeton via SUBTITLER_HF_TOKEN. Non requis si la fonctionnalité
+# reste désactivée (valeur par défaut).
+# pyannote.audio>=3.1

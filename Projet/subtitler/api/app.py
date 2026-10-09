@@ -23,6 +23,7 @@ from subtitler.jobs.models import (
 from subtitler.jobs.store import JobStore
 from subtitler.jobs.worker import JobWorker
 from subtitler.transcription.base import Transcriber
+from subtitler.transcription.diarization import PyannoteDiarizer
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,12 @@ def create_app(
 
     store = JobStore(settings.db_path)
     models = _ModelCache(transcriber_factory)
-    worker = JobWorker(store, settings.jobs_dir, models.get, settings.workers)
+    diarizer = (
+        PyannoteDiarizer(settings.diarization_model, settings.device, settings.hf_token)
+        if settings.enable_speakers
+        else None
+    )
+    worker = JobWorker(store, settings.jobs_dir, models.get, settings.workers, diarizer)
 
     def warm_up_default_model() -> None:
         try:
@@ -93,6 +99,7 @@ def create_app(
             default_model=settings.default_model,
             allowed_outputs={kind: list(outputs) for kind, outputs in ALLOWED_OUTPUTS.items()},
             max_upload_mb=settings.max_upload_mb,
+            speakers_enabled=settings.enable_speakers,
         )
 
     @app.post("/api/jobs", status_code=202)

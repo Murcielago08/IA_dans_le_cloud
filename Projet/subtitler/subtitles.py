@@ -12,9 +12,14 @@ def format_timestamp(seconds: float, separator: str = ",") -> str:
     return f"{hours:02d}:{minutes:02d}:{secs:02d}{separator}{ms:03d}"
 
 
+def _label(segment: Segment) -> str:
+    """Préfixe le texte par le locuteur quand la diarization est activée."""
+    return f"[{segment.speaker}] {segment.text}" if segment.speaker else segment.text
+
+
 def to_srt(segments: list[Segment]) -> str:
     blocks = [
-        f"{index}\n{format_timestamp(s.start)} --> {format_timestamp(s.end)}\n{s.text}\n"
+        f"{index}\n{format_timestamp(s.start)} --> {format_timestamp(s.end)}\n{_label(s)}\n"
         for index, s in enumerate(segments, start=1)
     ]
     return "\n".join(blocks)
@@ -22,11 +27,11 @@ def to_srt(segments: list[Segment]) -> str:
 
 def to_vtt(segments: list[Segment]) -> str:
     blocks = [
-        f"{format_timestamp(s.start, '.')} --> {format_timestamp(s.end, '.')}\n{s.text}\n"
+        f"{format_timestamp(s.start, '.')} --> {format_timestamp(s.end, '.')}\n{_label(s)}\n"
         for s in segments
     ]
     return "WEBVTT\n\n" + "\n".join(blocks)
 
 
 def to_text(segments: list[Segment]) -> str:
-    return " ".join(s.text for s in segments)
+    return " ".join(_label(s) for s in segments)

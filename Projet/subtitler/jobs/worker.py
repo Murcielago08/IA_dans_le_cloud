@@ -13,6 +13,7 @@ from subtitler import subtitles
 from subtitler.jobs.models import RESULT_FILENAMES, OutputKind
 from subtitler.jobs.store import JobStore
 from subtitler.transcription.base import Transcriber
+from subtitler.transcription.diarization import Diarizer, assign_speakers
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +37,13 @@ class JobWorker:
         jobs_dir: Path,
         get_transcriber: Callable[[str], Transcriber],
         threads: int = 1,
+        diarizer: Diarizer | None = None,
     ):
         self.store = store
         self.jobs_dir = jobs_dir
         self.get_transcriber = get_transcriber
         self.thread_count = threads
+        self.diarizer = diarizer
         self._queue: queue.Queue = queue.Queue()
         self._threads: list[threading.Thread] = []
 
@@ -91,6 +94,8 @@ class JobWorker:
 
         media.extract_audio(source, audio)
         segments = self.get_transcriber(model).transcribe(audio)
+        if self.diarizer is not None:
+            segments = assign_speakers(segments, self.diarizer.diarize(audio))
         text = subtitles.to_text(segments)
         srt.write_text(subtitles.to_srt(segments), encoding="utf-8", newline="")
         (job_dir / "subtitles.vtt").write_text(subtitles.to_vtt(segments), encoding="utf-8", newline="")

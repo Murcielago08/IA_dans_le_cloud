@@ -18,6 +18,9 @@ class Settings:
     device: str = "cuda:0"
     workers: int = 1
     max_upload_mb: int = 500
+    enable_speakers: bool = False
+    diarization_model: str = "pyannote/speaker-diarization-3.1"
+    hf_token: str | None = None
 
     @property
     def jobs_dir(self) -> Path:
@@ -36,4 +39,7 @@ class Settings:
             device=env.get("SUBTITLER_DEVICE", cls.device),
             workers=int(env.get("SUBTITLER_WORKERS", cls.workers)),
             max_upload_mb=int(env.get("SUBTITLER_MAX_UPLOAD_MB", cls.max_upload_mb)),
+            enable_speakers=env.get("SUBTITLER_ENABLE_SPEAKERS", "").lower() in ("1", "true", "yes"),
+            diarization_model=env.get("SUBTITLER_DIARIZATION_MODEL", cls.diarization_model),
+            hf_token=env.get("SUBTITLER_HF_TOKEN", cls.hf_token),
         )

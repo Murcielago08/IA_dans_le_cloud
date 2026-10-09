@@ -30,6 +30,12 @@ def test_srt_and_vtt_formats():
     assert to_text(segments) == "Hello. World."
 
 
+def test_speaker_label_is_added_when_present():
+    segments = [Segment(0, 1.5, "Hello.", "SPEAKER_00"), Segment(1.5, 3, "World.", None)]
+    assert to_text(segments) == "[SPEAKER_00] Hello. World."
+    assert "[SPEAKER_00] Hello.\n" in to_srt(segments)
+
+
 def test_chunks_keep_absolute_timestamps():
     chunks = [
         {"timestamp": (0.0, 4.0), "text": " First"},
