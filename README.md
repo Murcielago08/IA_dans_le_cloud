@@ -11,12 +11,14 @@ Le code applicatif se trouve dans [`Projet/`](Projet/).
 ## Avancement par rapport au cahier des charges
 
 Référence : [`Projet Fil rouge.pdf`](Projet/Projet%20Fil%20rouge.pdf).
-Avancement global estimé : **~68 %** — le pipeline applicatif (API, traitement,
+Avancement global estimé : **~60 %** — le pipeline applicatif (API, traitement,
 interface, stats), l'identification du locuteur et le dimensionnement de
 performance sont désormais couverts ; le volet *industrialisation cloud*
-(conteneurisation, déploiement effectif, CI) reste largement à faire.
+(conteneurisation, déploiement effectif, CI) reste largement à faire, ainsi que
+les nouvelles demandes (marquées 🆕 : identification, consentement, conservation
+des données, choix de la langue, suppression, pagination...).
 
-### Besoins fonctionnels obligatoires — Administrateur (~95 %)
+### Besoins fonctionnels obligatoires — Administrateur (~63 %)
 
 | Besoin | Avancement | Détail |
 |---|---|---|
@@ -24,8 +26,11 @@ performance sont désormais couverts ; le volet *industrialisation cloud*
 | Arrêter la solution | 100 % | `Ctrl+C` |
 | Relancer après arrêt/crash | 90 % | Les traitements interrompus reprennent automatiquement au redémarrage ; pas de superviseur (systemd/Docker restart) pour un redémarrage *automatique* après crash sans action humaine |
 | Statistiques d'usage (temps moyen, nb inférences par type, contenu des réponses, non terminés/échoués par type) | 100 % | `GET /api/stats` + page `admin.html` : tous les indicateurs demandés sont présents |
+| 🆕 Identification des utilisateurs (comptes, connexion) | 0 % | Aucune authentification : tous les traitements sont visibles par tous ; prérequis pour l'historique par utilisateur et la limite de 5 demandes simultanées |
+| 🆕 Garder une copie interne des fichiers et résultats | 50 % | Tout est déjà conservé dans `data/` (rien n'est jamais supprimé) ; à formaliser quand la suppression côté utilisateur existera : elle doit seulement masquer, pas effacer |
+| 🆕 Conservation des données 6 mois maximum | 0 % | Pas de purge automatique : à ajouter (tâche planifiée supprimant fichiers et lignes SQLite de plus de 6 mois) |
 
-### Besoins fonctionnels obligatoires — Utilisateur / Data scientist (~95 %)
+### Besoins fonctionnels obligatoires — Utilisateur / Data scientist (~56 %)
 
 | Besoin | Avancement | Détail |
 |---|---|---|
@@ -35,6 +40,12 @@ performance sont désormais couverts ; le volet *industrialisation cloud*
 | Lancer le traitement puis télécharger le résultat | 100 % | |
 | Ajouter un nouveau modèle de transcription | 100 % | Mécanisme d'extension `register()` documenté |
 | Faire évoluer la transcription avec l'identification du speaker | 90 % | Implémenté (voir [Identification du locuteur](#identification-du-locuteur-diarization)) ; reste à valider en conditions réelles (jeton Hugging Face requis, non testé sur GPU faute de matériel ici) |
+| 🆕 Choix du modèle dans une pop-up + choix de la langue | 0 % | Le modèle se choisit aujourd'hui dans une liste déroulante, sans choix de langue (les modèles `small.en`/`medium.en` ne gèrent que l'anglais) |
+| 🆕 Plusieurs modèles avec des noms explicites | 50 % | 3 modèles enregistrés (`whisper-small.en`, `whisper-medium.en`, `whisper-large-v3-turbo`) mais sous leur nom technique ; à renommer pour l'utilisateur (ex. « Rapide », « Équilibré », « Précis ») |
+| 🆕 Pagination de l'historique | 30 % | L'API accepte déjà `limit`/`offset` (`GET /api/jobs`) ; l'interface ne pagine pas |
+| 🆕 Bouton supprimer un téléchargement (masqué pour l'utilisateur seulement) + bouton « tout supprimer » | 0 % | À faire : suppression logique (le fichier reste en copie interne, voir Administrateur) |
+| 🆕 Case de consentement avant l'envoi | 0 % | À ajouter au formulaire d'upload, avec refus de l'envoi côté API si non cochée |
+| 🆕 Privilégier VLC pour la lecture | 0 % | À documenter/indiquer dans l'interface : les navigateurs n'affichent pas la piste de sous-titres d'une vidéo `video_track`, VLC oui |
 
 ### Besoins fonctionnels facultatifs (~35 %)
 
@@ -52,6 +63,7 @@ performance sont désormais couverts ; le volet *industrialisation cloud*
 | Tenue de la performance jusqu'à 10 utilisateurs en parallèle | 50 % | Architecture de parallélisme prouvée par `tests/test_concurrency.py` et mesurable en conditions réelles avec `scripts/load_test.py` (voir [Performance : parallélisme...](#performance--parallélisme-dimensionnement-et-coût-dinfrastructure)) ; pas encore mesuré sur GPU réel à 10 utilisateurs faute de matériel disponible ici |
 | Estimation de l'infrastructure nécessaire | 70 % | Dimensionnement chiffré rédigé (techno d'inférence + techno d'infra + ordre de grandeur de coût) ; à affiner avec une vraie mesure `load_test.py` sur l'offre cloud retenue |
 | Coût d'infra ≤ 10 000 €/an | 70 % | Estimé largement sous le budget avec une architecture GPU à la demande (voir détail) ; estimation, pas une facture réelle |
+| 🆕 Traitements vidéo en parallèle, max 5 demandes simultanées par utilisateur | 20 % | Le parallélisme global existe (`SUBTITLER_WORKERS`), mais aucune limite par utilisateur : nécessite d'abord l'identification |
 
 ### Qualité du code (~80 %)
 
