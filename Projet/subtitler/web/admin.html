@@ -12,8 +12,12 @@
       <div class="brand">Sub<span>titler</span></div>
       <nav>
         <a href="index.html">Transcrire</a>
-        <a href="admin.html" aria-current="page">Administration</a>
+        <a href="admin.html" id="admin-link" aria-current="page" hidden>Administration</a>
       </nav>
+      <div class="account" id="account" hidden>
+        <span id="account-name"></span>
+        <button type="button" class="btn-ghost" id="logout">Se déconnecter</button>
+      </div>
     </div>
   </header>
 
@@ -28,6 +32,7 @@
       <div class="stat"><small>Temps de calcul / durée du média</small><b id="s-ratio">—</b></div>
       <div class="stat"><small>Non terminés</small><b id="s-unfinished">—</b></div>
       <div class="stat err"><small>Échoués</small><b id="s-failed">—</b></div>
+      <div class="stat"><small>Annulés</small><b id="s-cancelled">—</b></div>
       <div class="stat"><small>Total des demandes</small><b id="s-total">—</b></div>
     </div>
 
@@ -36,7 +41,7 @@
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>Type</th><th class="num">Réalisés</th><th class="num">Non terminés</th><th class="num">Échoués</th></tr>
+            <tr><th>Type</th><th class="num">Réalisés</th><th class="num">Non terminés</th><th class="num">Échoués</th><th class="num">Annulés</th></tr>
           </thead>
           <tbody id="by-kind"></tbody>
         </table>
@@ -44,17 +49,33 @@
     </section>
 
     <section class="card">
-      <h2>Derniers traitements</h2>
+      <div class="section-head">
+        <h2>Derniers traitements</h2>
+        <div class="history-tools">
+          <label for="page-size">Afficher</label>
+          <select id="page-size">
+            <option value="5" selected>5</option>
+            <option value="10">10</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+      </div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>Date</th><th>Fichier</th><th>Type</th><th>Statut</th>
-              <th class="num">Durée média</th><th class="num">Calcul</th><th>Réponse</th>
+              <th>Date</th><th>Utilisateur</th><th>Fichier</th><th>Type</th><th>Statut</th>
+              <th class="num">Durée média</th><th class="num">Calcul</th><th>Consentement</th><th>Réponse</th>
             </tr>
           </thead>
           <tbody id="recent"></tbody>
         </table>
+      </div>
+      <div class="pager" id="pager" hidden>
+        <button type="button" class="btn-ghost" id="prev-page">← Précédent</button>
+        <span id="page-info"></span>
+        <button type="button" class="btn-ghost" id="next-page">Suivant →</button>
       </div>
     </section>
   </main>

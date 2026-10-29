@@ -1,6 +1,7 @@
 """Transcription avec les modèles Whisper via Hugging Face transformers."""
 
 import logging
+import queue
 import threading
 from pathlib import Path
 
@@ -10,12 +11,20 @@ logger = logging.getLogger(__name__)
 
 
 class WhisperTranscriber(Transcriber):
-    """Transcripteur Whisper. Le modèle est chargé au premier appel."""
+    """Transcripteur Whisper. Le modèle est chargé au premier appel.
 
-    def __init__(self, model_id: str, device: str = "cuda:0"):
+    Un exemplaire du modèle ne traite qu'un fichier à la fois : pour
+    transcrire ``replicas`` fichiers en même temps, jusqu'à ``replicas``
+    exemplaires sont chargés (à la demande), chacun occupant sa propre
+    mémoire GPU (~1,5 Go pour medium en float16).
+    """
+
+    def __init__(self, model_id: str, device: str = "cuda:0", replicas: int = 1):
         self.model_id = model_id
         self.device = device
-        self._pipeline = None
+        self.replicas = max(1, replicas)
+        self._free: queue.Queue = queue.Queue()  # exemplaires chargés et inoccupés
+        self._loaded = 0
         self._lock = threading.Lock()
 
     def _load(self):
@@ -35,16 +44,34 @@ class WhisperTranscriber(Transcriber):
             device=self.device if use_gpu else "cpu",
         )
 
-    def warm_up(self) -> None:
+    def _acquire(self):
+        """Réserve un exemplaire libre, en charge un nouveau ou attend qu'un se libère."""
         with self._lock:
-            if self._pipeline is None:
-                self._pipeline = self._load()
+            try:
+                return self._free.get_nowait()
+            except queue.Empty:
+                load_new = self._loaded < self.replicas
+                if load_new:
+                    self._loaded += 1
+        if not load_new:
+            return self._free.get()
+        try:
+            return self._load()
+        except BaseException:
+            with self._lock:
+                self._loaded -= 1
+            raise
+
+    def warm_up(self) -> None:
+        if self._loaded == 0:
+            self._free.put(self._acquire())
 
     def transcribe(self, audio_path: Path) -> list[Segment]:
-        self.warm_up()
-        # Le GPU n'est pas partagé entre deux transcriptions simultanées.
-        with self._lock:
-            result = self._pipeline(str(audio_path), return_timestamps=True)
+        pipeline = self._acquire()
+        try:
+            result = pipeline(str(audio_path), return_timestamps=True)
+        finally:
+            self._free.put(pipeline)
         return chunks_to_segments(result.get("chunks", []))
 
 

@@ -15,8 +15,8 @@ from fastapi.testclient import TestClient
 from subtitler.api import create_app
 from subtitler.config import Settings
 from subtitler.transcription.base import Transcriber
-from tests.conftest import FAKE_SEGMENTS, requires_ffmpeg
-from tests.test_api import submit, wait_for
+from tests.conftest import ADMIN, FAKE_SEGMENTS, login, login_admin, requires_ffmpeg
+from tests.test_api import wait_for
 
 pytestmark = requires_ffmpeg
 
@@ -34,14 +34,29 @@ class SlowTranscriber(Transcriber):
 
 @pytest.fixture
 def slow_settings(tmp_path) -> Settings:
-    return Settings(data_dir=tmp_path / "data", device="cpu", workers=WORKERS)
+    return Settings(
+        data_dir=tmp_path / "data", device="cpu", workers=WORKERS,
+        admin_username=ADMIN[0], admin_password=ADMIN[1],
+    )
 
 
 def test_workers_process_jobs_in_parallel_not_serially(slow_settings, audio_file):
     app = create_app(slow_settings, transcriber_factory=lambda name: SlowTranscriber())
     with TestClient(app) as client:
+        # Un fichier par utilisateur : un utilisateur n'a qu'un traitement actif à la fois.
+        # Connexions faites avant le chronomètre (le hachage du mot de passe est lent exprès).
+        tokens = [login(client, f"user{index}")["token"] for index in range(WORKERS)]
+        client.cookies.clear()
         started = time.perf_counter()
-        job_ids = [submit(client, audio_file, "text").json()["id"] for _ in range(WORKERS)]
+        job_ids = []
+        for token in tokens:
+            with audio_file.open("rb") as file:
+                response = client.post(
+                    "/api/jobs", files={"file": (audio_file.name, file)},
+                    data={"output_kind": "text"}, headers={"Authorization": f"Bearer {token}"},
+                )
+            job_ids.append(response.json()["id"])
+        login_admin(client)
         jobs = [wait_for(client, job_id, timeout=DELAY * WORKERS + 5) for job_id in job_ids]
         elapsed = time.perf_counter() - started
 

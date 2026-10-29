@@ -33,7 +33,8 @@ def create(name: str, settings: Settings) -> Transcriber:
 
 
 def _whisper(model_id: str) -> TranscriberFactory:
-    return lambda settings: WhisperTranscriber(model_id, settings.device)
+    # Un exemplaire du modèle par worker : les traitements simultanés ne s'attendent pas.
+    return lambda settings: WhisperTranscriber(model_id, settings.device, replicas=settings.workers)
 
 
 register("whisper-small.en", _whisper("openai/whisper-small.en"))

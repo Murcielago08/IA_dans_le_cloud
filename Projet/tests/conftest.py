@@ -11,6 +11,9 @@ from subtitler.transcription.base import Segment, Transcriber
 
 requires_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg absent")
 
+ADMIN = ("admin", "admin-password")
+PASSWORD = "user-password"
+
 FAKE_SEGMENTS = [
     Segment(0.0, 0.8, "Hello world."),
     Segment(0.8, 1.6, "Second sentence."),
@@ -60,7 +63,23 @@ def audio_file(media_dir) -> Path:
 
 @pytest.fixture
 def settings(tmp_path) -> Settings:
-    return Settings(data_dir=tmp_path / "data", default_model="whisper-small.en", device="cpu")
+    return Settings(
+        data_dir=tmp_path / "data", default_model="whisper-small.en", device="cpu",
+        admin_username=ADMIN[0], admin_password=ADMIN[1],
+    )
+
+
+def login(client, username: str = "alice", password: str = PASSWORD) -> dict:
+    """Connecte ``client`` (cookie de session), en créant le compte au besoin."""
+    response = client.post("/api/auth/login", json={"username": username, "password": password})
+    if response.status_code == 401:
+        response = client.post("/api/auth/register", json={"username": username, "password": password})
+    response.raise_for_status()
+    return response.json()
+
+
+def login_admin(client) -> dict:
+    return login(client, *ADMIN)
 
 
 @pytest.fixture
@@ -72,4 +91,5 @@ def transcriber() -> FakeTranscriber:
 def client(settings, transcriber):
     app = create_app(settings, transcriber_factory=lambda name: transcriber)
     with TestClient(app) as test_client:
+        login(test_client)
         yield test_client

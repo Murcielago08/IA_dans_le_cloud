@@ -75,6 +75,24 @@ nav a {
   margin-left: 18px;
 }
 nav a[aria-current="page"], nav a:hover { color: var(--text); }
+nav { margin-right: auto; }
+
+.account { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 14px; }
+.account span { color: var(--text); font-weight: 600; }
+
+/* Connexion */
+.login { max-width: 400px; margin: 40px auto 0; }
+.login input[type="text"], .login input[type="password"] {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.login .switch { margin: 16px 0 0; color: var(--muted); font-size: 14px; }
+.login .switch button { padding: 0; border: 0; background: none; color: var(--accent); font-weight: 600; }
 
 main {
   max-width: 960px;
@@ -198,6 +216,17 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .job-actions { margin-left: auto; display: flex; gap: 8px; }
 .job-error { color: var(--err); font-size: 13px; margin-top: 6px; }
 .empty { color: var(--muted); margin: 0; }
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.section-head h2 { margin: 0; }
+.history-tools { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; }
+.history-tools select { width: auto; padding: 5px 8px; }
+
+.pager { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+.pager span { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+
+.consent { display: flex; gap: 10px; align-items: flex-start; margin-top: 20px; cursor: pointer; }
+.consent input { margin-top: 4px; accent-color: var(--accent); }
+.consent small { display: block; color: var(--muted); font-size: 13px; }
 
 .badge {
   display: inline-block;
@@ -211,6 +240,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .badge.running { background: var(--warn-soft); color: var(--warn); }
 .badge.done { background: var(--ok-soft); color: var(--ok); }
 .badge.failed { background: var(--err-soft); color: var(--err); }
+.badge.cancelled { background: var(--surface-2); color: var(--muted); text-decoration: line-through; }
 
 .preview { margin-top: 12px; }
 .preview video { width: 100%; max-height: 480px; border-radius: 8px; background: #000; }
@@ -252,3 +282,4 @@ td.text { max-width: 320px; color: var(--muted); }
 td.text details summary { cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 td.text details[open] summary { white-space: normal; }
 .updated { color: var(--muted); font-size: 13px; }
+.hidden-note { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; }

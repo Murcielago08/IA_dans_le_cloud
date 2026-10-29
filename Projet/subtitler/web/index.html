@@ -12,8 +12,12 @@
       <div class="brand">Sub<span>titler</span></div>
       <nav>
         <a href="index.html" aria-current="page">Transcrire</a>
-        <a href="admin.html">Administration</a>
+        <a href="admin.html" id="admin-link" hidden>Administration</a>
       </nav>
+      <div class="account" id="account" hidden>
+        <span id="account-name"></span>
+        <button type="button" class="btn-ghost" id="logout">Se déconnecter</button>
+      </div>
     </div>
   </header>
 
@@ -56,6 +60,14 @@
       <label class="label" for="model">3. Modèle</label>
       <select id="model" name="model"></select>
 
+      <label class="consent">
+        <input type="checkbox" name="consent" value="true">
+        <span>
+          J'accepte que mon fichier soit conservé à des fins d'analyse et d'amélioration de la transcription.
+          <small>Facultatif : la transcription fonctionne aussi sans votre accord.</small>
+        </span>
+      </label>
+
       <div class="actions">
         <button type="submit" id="submit">Lancer la transcription</button>
         <div class="progress" id="progress" hidden><div></div></div>
@@ -64,9 +76,26 @@
     </form>
 
     <section class="card">
-      <h2>Mes traitements</h2>
+      <div class="section-head">
+        <h2>Mes traitements</h2>
+        <div class="history-tools" id="history-tools" hidden>
+          <label for="page-size">Afficher</label>
+          <select id="page-size">
+            <option value="5" selected>5</option>
+            <option value="10">10</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+          <button type="button" class="btn-ghost" id="clear-all">Tout supprimer</button>
+        </div>
+      </div>
       <p class="empty" id="empty">Aucun traitement pour l'instant.</p>
       <ul class="jobs" id="jobs"></ul>
+      <div class="pager" id="pager" hidden>
+        <button type="button" class="btn-ghost" id="prev-page">← Précédent</button>
+        <span id="page-info"></span>
+        <button type="button" class="btn-ghost" id="next-page">Suivant →</button>
+      </div>
     </section>
   </main>
 
@@ -79,8 +108,10 @@
         </div>
         <span class="badge"></span>
         <div class="job-actions">
+          <button type="button" class="btn-ghost cancel-btn" hidden>Annuler</button>
           <button type="button" class="btn-ghost preview-btn" hidden>Aperçu</button>
           <a class="btn btn-ghost download-btn" hidden>Télécharger</a>
+          <button type="button" class="btn-ghost delete-btn" title="Retirer de mon historique">Supprimer</button>
         </div>
       </div>
       <div class="job-error" hidden></div>

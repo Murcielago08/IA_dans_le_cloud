@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Subtitler · Connexion</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="bar">
+      <div class="brand">Sub<span>titler</span></div>
+    </div>
+  </header>
+
+  <main>
+    <form id="login-form" class="card login">
+      <h1 id="title">Connexion</h1>
+      <p class="lead" id="lead">Connectez-vous pour transcrire vos fichiers et retrouver vos traitements.</p>
+
+      <label class="label" for="username">Identifiant</label>
+      <input type="text" id="username" name="username" autocomplete="username" required>
+
+      <label class="label" for="password">Mot de passe</label>
+      <input type="password" id="password" name="password" autocomplete="current-password" required>
+
+      <div class="actions">
+        <button type="submit" id="submit">Se connecter</button>
+      </div>
+      <p class="message" id="message" hidden></p>
+      <p class="switch" id="switch" hidden>
+        <span id="switch-text">Pas encore de compte ?</span>
+        <button type="button" id="switch-btn">Créer un compte</button>
+      </p>
+    </form>
+  </main>
+
+  <script src="common.js"></script>
+  <script src="login.js"></script>
+</body>
+</html>

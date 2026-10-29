@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from subtitler import media
 from subtitler.api import create_app
-from tests.conftest import FakeTranscriber, requires_ffmpeg
+from tests.conftest import FakeTranscriber, login, login_admin, requires_ffmpeg
 
 pytestmark = requires_ffmpeg
 
@@ -39,6 +39,9 @@ def test_health_and_info(client):
 def test_web_interface_is_served(client):
     assert "Subtitler" in client.get("/").text
     assert client.get("/admin.html").status_code == 200
+    assert "Connexion" in client.get("/login.html").text
+    # Le navigateur doit revalider les scripts après une mise à jour.
+    assert client.get("/admin.js").headers["cache-control"] == "no-cache"
 
 
 def test_text_from_audio(client, audio_file):
@@ -102,6 +105,7 @@ def test_corrupted_file_is_rejected(client, tmp_path):
     fake.write_bytes(b"not a video")
     response = submit(client, fake, "text")
     assert response.status_code == 400
+    login_admin(client)
     assert client.get("/api/stats").json()["total_jobs"] == 0
 
 
@@ -117,6 +121,7 @@ def test_unknown_model_is_rejected(client, audio_file):
 def test_failed_job_is_reported(settings, audio_file):
     failing = FakeTranscriber(error=RuntimeError("CUDA out of memory"))
     with TestClient(create_app(settings, transcriber_factory=lambda name: failing)) as client:
+        login_admin(client)
         job = wait_for(client, submit(client, audio_file, "text").json()["id"])
         assert job["status"] == "failed"
         assert job["error"] == "CUDA out of memory"
@@ -133,20 +138,23 @@ def test_unknown_job(client):
 def test_stats_after_jobs(client, audio_file):
     for kind in ("text", "subtitles"):
         wait_for(client, submit(client, audio_file, kind).json()["id"])
+    assert len(client.get("/api/jobs").json()) == 2
+    login_admin(client)
     stats = client.get("/api/stats").json()
     assert stats["inferences"]["total"] == 2
     assert stats["inferences"]["by_kind"]["text"] == 1
     assert stats["unfinished"]["total"] == 0
     assert stats["avg_realtime_ratio"] < 1
-    assert len(client.get("/api/jobs").json()) == 2
 
 
 def test_unfinished_jobs_resume_after_restart(settings, audio_file, transcriber):
     # Sans « with », le lifespan ne s'exécute pas : aucun worker, comme après un crash.
     client = TestClient(create_app(settings, transcriber_factory=lambda name: transcriber))
+    login(client)
     job_id = submit(client, audio_file, "text").json()["id"]
     assert client.get(f"/api/jobs/{job_id}").json()["status"] == "pending"
 
     # Redémarrage : le job est repris automatiquement.
     with TestClient(create_app(settings, transcriber_factory=lambda name: transcriber)) as client:
+        login(client)
         assert wait_for(client, job_id)["status"] == "done"

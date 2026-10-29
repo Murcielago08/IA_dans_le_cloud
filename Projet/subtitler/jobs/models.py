@@ -22,6 +22,7 @@ class JobStatus(StrEnum):
     RUNNING = "running"
     DONE = "done"
     FAILED = "failed"
+    CANCELLED = "cancelled"  # annulé par l'utilisateur avant la fin
 
 
 ALLOWED_OUTPUTS: dict[InputKind, tuple[OutputKind, ...]] = {
@@ -52,3 +53,9 @@ class Job:
     processing_time: float | None = None
     text: str | None = None
     error: str | None = None
+    user_id: str | None = None  # propriétaire ; None pour les jobs créés avant les comptes
+    # Accord de l'utilisateur pour conserver le fichier à des fins d'analyse et de correction.
+    consent: bool = False
+    consent_at: datetime | None = None
+    # Retiré de l'historique par l'utilisateur ; les fichiers restent conservés.
+    hidden_at: datetime | None = None

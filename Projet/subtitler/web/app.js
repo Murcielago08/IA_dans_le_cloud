@@ -1,7 +1,8 @@
 // Page utilisateur : envoi d'un fichier et suivi des traitements.
 
-const STORAGE_KEY = "subtitler.jobs";
 const POLL_MS = 2000;
+const PAGE_SIZES = [5, 10, 50, 100];
+const PAGE_SIZE_KEY = "subtitler.pageSize";
 
 const form = document.getElementById("upload-form");
 const fileInput = document.getElementById("file");
@@ -15,26 +16,21 @@ const message = document.getElementById("message");
 const jobList = document.getElementById("jobs");
 const emptyText = document.getElementById("empty");
 const template = document.getElementById("job-template");
+const clearAllButton = document.getElementById("clear-all");
+const historyTools = document.getElementById("history-tools");
+const pageSizeSelect = document.getElementById("page-size");
+const pager = document.getElementById("pager");
+const prevButton = document.getElementById("prev-page");
+const nextButton = document.getElementById("next-page");
+const pageInfo = document.getElementById("page-info");
 
-const jobs = new Map(); // id -> dernier état connu
+const jobs = new Map(); // id -> dernier état connu (traitements de la page affichée)
 const elements = new Map(); // id -> élément <li>
+let page = 1;
+let pageSize = 5;
+let total = 0; // nombre de traitements dans tout l'historique
 let maxUploadMb = 500;
-
-// --- Historique local des traitements de cet utilisateur ---
-
-function loadJobIds() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-  } catch {
-    return [];
-  }
-}
-
-function saveJobIds() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([...jobs.keys()]));
-  } catch { /* stockage indisponible : l'historique ne sera pas conservé */ }
-}
+let maxJobsPerUser = 5;
 
 // --- Formulaire ---
 
@@ -78,6 +74,7 @@ function upload(formData) {
       }
     };
     request.onload = () => {
+      if (request.status === 401) redirectToLogin();
       if (request.status === 202) resolve(request.response);
       else reject(new Error(request.response?.detail || `Erreur ${request.status}`));
     };
@@ -93,6 +90,10 @@ async function onSubmit(event) {
     showMessage("Choisissez d'abord un fichier.");
     return;
   }
+  if ([...jobs.values()].filter(isActive).length >= maxJobsPerUser) {
+    showMessage(`Vous avez déjà ${maxJobsPerUser} traitements en cours : attendez qu'un traitement se termine.`);
+    return;
+  }
   if (file.size > maxUploadMb * 2 ** 20) {
     showMessage(`Le fichier dépasse la taille maximale de ${maxUploadMb} Mo.`);
     return;
@@ -102,15 +103,9 @@ async function onSubmit(event) {
   progress.hidden = false;
   progress.firstElementChild.style.width = "0";
   try {
-    const job = await upload(new FormData(form));
-    jobs.set(job.id, job);
-    // Le traitement le plus récent en premier.
-    const ordered = new Map([[job.id, job], ...jobs]);
-    jobs.clear();
-    ordered.forEach((value, key) => jobs.set(key, value));
-    saveJobIds();
-    render();
-    schedulePoll();
+    await upload(new FormData(form));
+    // Le traitement le plus récent est en tête de la première page.
+    await loadPage(1);
   } catch (error) {
     showMessage(error.message);
   } finally {
@@ -126,9 +121,65 @@ function isActive(job) {
   return !job || job.status === "pending" || job.status === "running";
 }
 
+// --- Pagination ---
+
+function pageCount() {
+  return Math.max(1, Math.ceil(total / pageSize));
+}
+
+// Taille de page mémorisée dans le navigateur (simple préférence d'affichage).
+function loadPageSize() {
+  try {
+    const saved = Number(localStorage.getItem(PAGE_SIZE_KEY));
+    if (PAGE_SIZES.includes(saved)) pageSize = saved;
+  } catch { /* stockage indisponible : taille par défaut */ }
+  pageSizeSelect.value = String(pageSize);
+}
+
+function onPageSizeChange() {
+  pageSize = Number(pageSizeSelect.value);
+  try {
+    localStorage.setItem(PAGE_SIZE_KEY, String(pageSize));
+  } catch { /* préférence non conservée */ }
+  loadPage(1);
+}
+
+async function loadPage(number) {
+  let result;
+  try {
+    result = await apiPage(`/api/jobs?limit=${pageSize}&offset=${(number - 1) * pageSize}`);
+  } catch (error) {
+    showMessage(`Impossible de charger l'historique : ${error.message}`);
+    return;
+  }
+  page = number;
+  total = result.total;
+  // Page devenue vide (suppression du dernier élément) : on revient en arrière.
+  if (result.items.length === 0 && page > 1) {
+    await loadPage(Math.min(page - 1, pageCount()));
+    return;
+  }
+  const ids = new Set(result.items.map((job) => job.id));
+  // Les éléments déjà affichés sont conservés (un aperçu ouvert reste ouvert).
+  [...jobs.keys()].filter((id) => !ids.has(id)).forEach(forget);
+  jobs.clear();
+  result.items.forEach((job) => jobs.set(job.id, job));
+  render();
+  schedulePoll();
+}
+
+function renderPager() {
+  pager.hidden = total <= pageSize;
+  pageInfo.textContent = `Page ${page} / ${pageCount()} · ${total} traitement${total > 1 ? "s" : ""}`;
+  prevButton.disabled = page <= 1;
+  nextButton.disabled = page >= pageCount();
+}
+
 function render() {
   const known = [...jobs.values()].filter(Boolean);
-  emptyText.hidden = known.length > 0;
+  emptyText.hidden = total > 0;
+  historyTools.hidden = total === 0;
+  renderPager();
   known.forEach((job, index) => {
     let element = elements.get(job.id);
     if (!element) {
@@ -143,7 +194,52 @@ function render() {
 function createJobElement(job) {
   const element = template.content.firstElementChild.cloneNode(true);
   element.querySelector(".preview-btn").addEventListener("click", () => togglePreview(element, jobs.get(job.id)));
+  element.querySelector(".delete-btn").addEventListener("click", () => deleteJob(job.id));
+  element.querySelector(".cancel-btn").addEventListener("click", () => cancelJob(job.id));
   return element;
+}
+
+// --- Suppression (retire de l'historique ; le serveur conserve les fichiers) ---
+
+function forget(id) {
+  jobs.delete(id);
+  elements.get(id)?.remove();
+  elements.delete(id);
+}
+
+async function deleteJob(id) {
+  if (!confirm(`Retirer « ${jobs.get(id).filename} » de votre historique ?`)) return;
+  try {
+    await api(`/api/jobs/${id}`, { method: "DELETE" });
+    forget(id);
+    // Recharge la page : le traitement suivant remonte de la page d'après.
+    await loadPage(page);
+  } catch (error) {
+    showMessage(error.message);
+  }
+}
+
+async function cancelJob(id) {
+  if (!confirm(`Annuler le traitement de « ${jobs.get(id).filename} » ?`)) return;
+  try {
+    jobs.set(id, await api(`/api/jobs/${id}/cancel`, { method: "POST" }));
+  } catch (error) {
+    // Déjà terminé entre-temps : on affiche simplement son état réel.
+    jobs.set(id, await api(`/api/jobs/${id}`).catch(() => jobs.get(id)));
+    if (jobs.get(id).status !== "done") showMessage(error.message);
+  }
+  render();
+}
+
+async function deleteAll() {
+  if (!confirm("Retirer tous vos traitements de votre historique ?")) return;
+  try {
+    await api("/api/jobs", { method: "DELETE" });
+    [...jobs.keys()].forEach(forget);
+    await loadPage(1);
+  } catch (error) {
+    showMessage(error.message);
+  }
 }
 
 function updateJobElement(element, job) {
@@ -157,6 +253,7 @@ function updateJobElement(element, job) {
   badge.className = `badge ${job.status}`;
   badge.textContent = STATUS_LABELS[job.status];
 
+  element.querySelector(".cancel-btn").hidden = !isActive(job);
   const done = job.status === "done";
   element.querySelector(".preview-btn").hidden = !done;
   const download = element.querySelector(".download-btn");
@@ -231,14 +328,9 @@ async function refresh(ids) {
     try {
       jobs.set(id, await api(`/api/jobs/${id}`));
     } catch (error) {
-      if (error.message === "Traitement introuvable") {
-        jobs.delete(id);
-        elements.get(id)?.remove();
-        elements.delete(id);
-      }
+      if (error.message === "Traitement introuvable") forget(id);
     }
   }));
-  saveJobIds();
   render();
 }
 
@@ -247,6 +339,11 @@ async function refresh(ids) {
 async function init() {
   fileInput.addEventListener("change", onFileChosen);
   form.addEventListener("submit", onSubmit);
+  clearAllButton.addEventListener("click", deleteAll);
+  pageSizeSelect.addEventListener("change", onPageSizeChange);
+  loadPageSize();
+  prevButton.addEventListener("click", () => loadPage(page - 1));
+  nextButton.addEventListener("click", () => loadPage(page + 1));
   for (const type of ["dragenter", "dragover"]) {
     drop.addEventListener(type, (event) => { event.preventDefault(); drop.classList.add("over"); });
   }
@@ -260,17 +357,23 @@ async function init() {
   });
 
   try {
+    await requireUser();
+  } catch (error) {
+    showMessage(`Le serveur ne répond pas : ${error.message}`);
+    return;
+  }
+
+  try {
     const info = await api("/api/info");
     maxUploadMb = info.max_upload_mb;
+    maxJobsPerUser = info.max_jobs_per_user;
     modelSelect.replaceChildren(...info.models.map((name) => new Option(name, name, false, name === info.default_model)));
   } catch (error) {
     showMessage(`Le serveur ne répond pas : ${error.message}`);
   }
 
-  const ids = loadJobIds();
-  ids.forEach((id) => jobs.set(id, null));
-  await refresh(ids);
-  schedulePoll();
+  // Historique conservé côté serveur : le même sur tous les appareils de l'utilisateur.
+  await loadPage(1);
 }
 
 init();

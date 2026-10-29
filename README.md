@@ -11,14 +11,14 @@ Le code applicatif se trouve dans [`Projet/`](Projet/).
 ## Avancement par rapport au cahier des charges
 
 Référence : [`Projet Fil rouge.pdf`](Projet/Projet%20Fil%20rouge.pdf).
-Avancement global estimé : **~60 %** — le pipeline applicatif (API, traitement,
+Avancement global estimé : **~70 %** — le pipeline applicatif (API, traitement,
 interface, stats), l'identification du locuteur et le dimensionnement de
 performance sont désormais couverts ; le volet *industrialisation cloud*
 (conteneurisation, déploiement effectif, CI) reste largement à faire, ainsi que
-les nouvelles demandes (marquées 🆕 : identification, consentement, conservation
-des données, choix de la langue, suppression, pagination...).
+les nouvelles demandes restantes (marquées 🆕 : purge des données à 6 mois,
+choix du modèle et de la langue, VLC...).
 
-### Besoins fonctionnels obligatoires — Administrateur (~63 %)
+### Besoins fonctionnels obligatoires — Administrateur (~83 %)
 
 | Besoin | Avancement | Détail |
 |---|---|---|
@@ -26,11 +26,11 @@ des données, choix de la langue, suppression, pagination...).
 | Arrêter la solution | 100 % | `Ctrl+C` |
 | Relancer après arrêt/crash | 90 % | Les traitements interrompus reprennent automatiquement au redémarrage ; pas de superviseur (systemd/Docker restart) pour un redémarrage *automatique* après crash sans action humaine |
 | Statistiques d'usage (temps moyen, nb inférences par type, contenu des réponses, non terminés/échoués par type) | 100 % | `GET /api/stats` + page `admin.html` : tous les indicateurs demandés sont présents |
-| 🆕 Identification des utilisateurs (comptes, connexion) | 0 % | Aucune authentification : tous les traitements sont visibles par tous ; prérequis pour l'historique par utilisateur et la limite de 5 demandes simultanées |
-| 🆕 Garder une copie interne des fichiers et résultats | 50 % | Tout est déjà conservé dans `data/` (rien n'est jamais supprimé) ; à formaliser quand la suppression côté utilisateur existera : elle doit seulement masquer, pas effacer |
+| 🆕 Identification des utilisateurs (comptes, connexion) | 90 % | Comptes + connexion (voir [Comptes utilisateurs](#comptes-utilisateurs)) : chacun ne voit que ses traitements, statistiques réservées à l'administrateur ; reste : réinitialisation du mot de passe, gestion des comptes depuis l'admin, limitation des tentatives de connexion |
+| 🆕 Garder une copie interne des fichiers et résultats | 100 % | Tout est conservé dans `data/` : la suppression côté utilisateur ne fait que masquer (voir [Historique et consentement](#historique-et-consentement)) ; l'administrateur voit tous les traitements, y compris retirés, avec le consentement de chacun |
 | 🆕 Conservation des données 6 mois maximum | 0 % | Pas de purge automatique : à ajouter (tâche planifiée supprimant fichiers et lignes SQLite de plus de 6 mois) |
 
-### Besoins fonctionnels obligatoires — Utilisateur / Data scientist (~56 %)
+### Besoins fonctionnels obligatoires — Utilisateur / Data scientist (~80 %)
 
 | Besoin | Avancement | Détail |
 |---|---|---|
@@ -42,9 +42,10 @@ des données, choix de la langue, suppression, pagination...).
 | Faire évoluer la transcription avec l'identification du speaker | 90 % | Implémenté (voir [Identification du locuteur](#identification-du-locuteur-diarization)) ; reste à valider en conditions réelles (jeton Hugging Face requis, non testé sur GPU faute de matériel ici) |
 | 🆕 Choix du modèle dans une pop-up + choix de la langue | 0 % | Le modèle se choisit aujourd'hui dans une liste déroulante, sans choix de langue (les modèles `small.en`/`medium.en` ne gèrent que l'anglais) |
 | 🆕 Plusieurs modèles avec des noms explicites | 50 % | 3 modèles enregistrés (`whisper-small.en`, `whisper-medium.en`, `whisper-large-v3-turbo`) mais sous leur nom technique ; à renommer pour l'utilisateur (ex. « Rapide », « Équilibré », « Précis ») |
-| 🆕 Pagination de l'historique | 30 % | L'API accepte déjà `limit`/`offset` (`GET /api/jobs`) ; l'interface ne pagine pas |
-| 🆕 Bouton supprimer un téléchargement (masqué pour l'utilisateur seulement) + bouton « tout supprimer » | 0 % | À faire : suppression logique (le fichier reste en copie interne, voir Administrateur) |
-| 🆕 Case de consentement avant l'envoi | 0 % | À ajouter au formulaire d'upload, avec refus de l'envoi côté API si non cochée |
+| 🆕 Pagination de l'historique | 100 % | Nombre de traitements par page au choix dans un menu déroulant (5, 10, 50 ou 100, 5 par défaut, mémorisé dans le navigateur), aussi sur la page d'administration, boutons « Précédent » / « Suivant » et compteur « Page 1 / 3 · 25 traitements » ; l'API renvoie le total dans l'en-tête `X-Total-Count` |
+| 🆕 Bouton supprimer un téléchargement (masqué pour l'utilisateur seulement) + bouton « tout supprimer » | 100 % | Boutons « Supprimer » et « Tout supprimer » : le traitement disparaît de l'historique de l'utilisateur, les fichiers restent sauvegardés jusqu'à la purge des 6 mois |
+| 🆕 Bouton annuler un traitement en attente ou en cours | 100 % | Voir [Annulation](#annulation) : la place se libère aussitôt dans la limite par utilisateur ; une transcription déjà lancée finit son étape avant de s'arrêter |
+| 🆕 Case de consentement : conservation de la vidéo à des fins d'analyse et de correction | 100 % | Case facultative à l'envoi (le traitement a lieu dans tous les cas) ; consentement et date enregistrés avec le traitement et visibles par l'administrateur |
 | 🆕 Privilégier VLC pour la lecture | 0 % | À documenter/indiquer dans l'interface : les navigateurs n'affichent pas la piste de sous-titres d'une vidéo `video_track`, VLC oui |
 
 ### Besoins fonctionnels facultatifs (~35 %)
@@ -55,7 +56,7 @@ des données, choix de la langue, suppression, pagination...).
 | Interfacer la solution au service de traduction | 0 % | Non traité |
 | Autre besoin jugé pertinent | — | Non applicable / non défini avec le client |
 
-### Performance & infrastructure (~55 %)
+### Performance & infrastructure (~70 %)
 
 | Besoin | Avancement | Détail |
 |---|---|---|
@@ -63,7 +64,7 @@ des données, choix de la langue, suppression, pagination...).
 | Tenue de la performance jusqu'à 10 utilisateurs en parallèle | 50 % | Architecture de parallélisme prouvée par `tests/test_concurrency.py` et mesurable en conditions réelles avec `scripts/load_test.py` (voir [Performance : parallélisme...](#performance--parallélisme-dimensionnement-et-coût-dinfrastructure)) ; pas encore mesuré sur GPU réel à 10 utilisateurs faute de matériel disponible ici |
 | Estimation de l'infrastructure nécessaire | 70 % | Dimensionnement chiffré rédigé (techno d'inférence + techno d'infra + ordre de grandeur de coût) ; à affiner avec une vraie mesure `load_test.py` sur l'offre cloud retenue |
 | Coût d'infra ≤ 10 000 €/an | 70 % | Estimé largement sous le budget avec une architecture GPU à la demande (voir détail) ; estimation, pas une facture réelle |
-| 🆕 Traitements vidéo en parallèle, max 5 demandes simultanées par utilisateur | 20 % | Le parallélisme global existe (`SUBTITLER_WORKERS`), mais aucune limite par utilisateur : nécessite d'abord l'identification |
+| 🆕 Traitements vidéo en parallèle, max 5 demandes simultanées par utilisateur | 100 % | Traitements en parallèle via `SUBTITLER_WORKERS` ; au-delà de 5 traitements en attente ou en cours, un nouvel envoi est refusé (HTTP 429, message explicite) jusqu'à ce qu'un se termine (voir [Limite par utilisateur](#limite-par-utilisateur)) |
 
 ### Qualité du code (~80 %)
 
@@ -102,13 +103,57 @@ Les commandes suivantes se lancent depuis `Projet/`.
 python -m subtitler
 ```
 
-- Interface : <http://127.0.0.1:8000>
+- Interface : <http://127.0.0.1:8000> (redirige vers la page de connexion)
 - Admin (statistiques) : <http://127.0.0.1:8000/admin.html>
 - Doc de l'API : <http://127.0.0.1:8000/docs>
 
 `Ctrl+C` pour arrêter. Au premier lancement, le modèle Whisper est téléchargé
 (~1,5 Go), puis mis en cache. Les traitements interrompus reprennent
 automatiquement au redémarrage.
+
+### Créer le compte administrateur
+
+Le compte administrateur (accès aux statistiques et à tous les traitements)
+ne se crée pas depuis l'interface : il est créé au démarrage du serveur à
+partir de deux variables d'environnement.
+
+1. Se placer dans `Projet/` et activer l'environnement Python :
+
+   ```powershell
+   cd Projet
+   .venv\Scripts\Activate.ps1          # Linux/macOS : source .venv/bin/activate
+   ```
+
+2. Définir l'identifiant et le mot de passe (8 caractères minimum) :
+
+   ```powershell
+   # PowerShell
+   $env:SUBTITLER_ADMIN_USERNAME = "admin"
+   $env:SUBTITLER_ADMIN_PASSWORD = "MonMotDePasse123"
+   ```
+
+   ```bash
+   # cmd : set SUBTITLER_ADMIN_USERNAME=admin   (sans guillemets ni espaces)
+   # Linux/macOS :
+   export SUBTITLER_ADMIN_USERNAME=admin
+   export SUBTITLER_ADMIN_PASSWORD=MonMotDePasse123
+   ```
+
+3. Lancer le serveur **dans le même terminal** : `python -m subtitler`.
+4. Ouvrir <http://127.0.0.1:8000> et se connecter avec ces identifiants via
+   « Se connecter » (pas « Créer un compte »). Le lien **Administration**
+   apparaît dans l'en-tête.
+
+Le compte est enregistré dans la base : aux lancements suivants, les variables
+ne sont plus nécessaires. Elles ne durent que le temps du terminal ; pour les
+garder, les mettre dans un script de lancement non versionné (il contient le
+mot de passe).
+
+**En cas d'échec de connexion** (« Identifiant ou mot de passe incorrect ») :
+un compte portant déjà cet identifiant existait sans doute (créé via « Créer
+un compte »). Il est bien devenu administrateur, mais garde son ancien mot de
+passe : se connecter avec celui-ci, ou relancer avec un autre identifiant
+(ex. `$env:SUBTITLER_ADMIN_USERNAME = "superadmin"`).
 
 Configuration par variables d'environnement (valeurs par défaut) :
 
@@ -119,29 +164,45 @@ Configuration par variables d'environnement (valeurs par défaut) :
 | `SUBTITLER_DATA_DIR` | `data` | Fichiers envoyés, résultats, base SQLite |
 | `SUBTITLER_DEFAULT_MODEL` | `whisper-medium.en` | Modèle par défaut |
 | `SUBTITLER_DEVICE` | `cuda:0` | `cpu` pour forcer le CPU |
-| `SUBTITLER_WORKERS` | `1` | Traitements simultanés (1 par GPU) |
+| `SUBTITLER_WORKERS` | `2` | Utilisateurs traités simultanément (un traitement actif par utilisateur) ; chacun charge son exemplaire du modèle (~1,5 Go de mémoire GPU pour medium) |
 | `SUBTITLER_MAX_UPLOAD_MB` | `500` | Taille maximale d'un fichier |
+| `SUBTITLER_MAX_JOBS_PER_USER` | `5` | Traitements simultanés (en attente ou en cours) par utilisateur |
 | `SUBTITLER_ENABLE_SPEAKERS` | `false` | Active l'identification du locuteur (diarization) |
 | `SUBTITLER_DIARIZATION_MODEL` | `pyannote/speaker-diarization-3.1` | Modèle de diarization |
 | `SUBTITLER_HF_TOKEN` | — | Jeton Hugging Face requis par le modèle de diarization (gated) |
+| `SUBTITLER_ADMIN_USERNAME` | — | Compte administrateur créé au démarrage s'il n'existe pas |
+| `SUBTITLER_ADMIN_PASSWORD` | — | Mot de passe de ce compte (8 caractères minimum) |
+| `SUBTITLER_ALLOW_SIGNUP` | `true` | `false` pour interdire la création de compte depuis l'interface |
+| `SUBTITLER_SESSION_DAYS` | `7` | Durée d'une session de connexion |
 
 ## API
 
-| Route | Rôle |
-|---|---|
-| `POST /api/jobs` | Envoie un fichier (`file`, `output_kind`, `model` optionnel) |
-| `GET /api/jobs/{id}` | État du traitement + texte transcrit |
-| `GET /api/jobs/{id}/result` | Télécharge le résultat (`?inline=true` pour l'afficher) |
-| `GET /api/jobs/{id}/subtitles.vtt` | Sous-titres WebVTT |
-| `GET /api/jobs` | Historique des traitements |
-| `GET /api/stats` | Statistiques d'usage |
-| `GET /api/info` | Modèles et formats disponibles |
-| `GET /api/health` | Sonde de santé |
+| Route | Accès | Rôle |
+|---|---|---|
+| `POST /api/auth/register` | public | Crée un compte (`username`, `password`) et ouvre une session |
+| `POST /api/auth/login` | public | Ouvre une session : cookie + `token` dans la réponse |
+| `POST /api/auth/logout` | connecté | Ferme la session |
+| `GET /api/auth/me` | connecté | Utilisateur connecté |
+| `POST /api/jobs` | connecté | Envoie un fichier (`file`, `output_kind`, `model` et `consent` optionnels) |
+| `GET /api/jobs/{id}` | propriétaire | État du traitement + texte transcrit |
+| `GET /api/jobs/{id}/result` | propriétaire | Télécharge le résultat (`?inline=true` pour l'afficher) |
+| `GET /api/jobs/{id}/subtitles.vtt` | propriétaire | Sous-titres WebVTT |
+| `GET /api/jobs` | connecté | Mes traitements, du plus récent au plus ancien (`?all=true` : tous, y compris retirés, administrateur) ; pagination avec `limit`/`offset`, total dans l'en-tête `X-Total-Count` |
+| `POST /api/jobs/{id}/cancel` | propriétaire | Annule un traitement en attente ou en cours |
+| `DELETE /api/jobs/{id}` | propriétaire | Retire le traitement de l'historique (fichiers conservés) |
+| `DELETE /api/jobs` | connecté | Retire tous mes traitements de l'historique (fichiers conservés) |
+| `GET /api/stats` | administrateur | Statistiques d'usage |
+| `GET /api/info` | public | Modèles et formats disponibles |
+| `GET /api/health` | public | Sonde de santé |
+
+« propriétaire » : l'utilisateur qui a envoyé le fichier, ou l'administrateur.
+Le traitement d'un autre utilisateur répond 404, comme s'il n'existait pas.
 
 `output_kind` : `video_embedded`, `video_track`, `subtitles` ou `text`.
 
 ```bash
-curl -F file=@poc/input.mp4 -F output_kind=subtitles http://127.0.0.1:8000/api/jobs
+TOKEN=$(curl -s -H "Content-Type: application/json"   -d '{"username": "alice", "password": "mot-de-passe"}'   http://127.0.0.1:8000/api/auth/login | python -c "import json,sys; print(json.load(sys.stdin)['token'])")
+curl -H "Authorization: Bearer $TOKEN" -F file=@poc/input.mp4 -F output_kind=subtitles   http://127.0.0.1:8000/api/jobs
 ```
 
 ## Architecture
@@ -153,12 +214,20 @@ subtitler/
 ├── transcription/  modèles de transcription (interface + Whisper)
 ├── media.py        appels ffmpeg/ffprobe
 ├── subtitles.py    formats SRT, WebVTT, texte
+├── users.py        comptes utilisateurs et sessions
 └── web/            interface HTML/CSS/JS (sans build)
 ```
 
 Un envoi est enregistré puis mis en file d'attente ; un worker extrait l'audio,
-transcrit, puis génère le résultat. Avec un seul GPU, les envois simultanés
-attendent leur tour plutôt que de saturer sa mémoire.
+transcrit, puis génère le résultat. `SUBTITLER_WORKERS` traitements tournent
+en même temps, chacun avec son propre exemplaire du modèle ; au-delà, les
+envois attendent leur tour plutôt que de saturer la mémoire du GPU. La file
+fait passer les utilisateurs en parallèle, pas leurs fichiers : un
+utilisateur n'a qu'un traitement actif à la fois, ses autres fichiers
+attendent la fin du précédent, et les workers libres servent les autres
+utilisateurs à tour de rôle. Deux utilisateurs qui lancent un traitement en
+même temps sont donc traités en parallèle, même si l'un a déjà plusieurs
+fichiers en attente.
 
 Ajouter un modèle de transcription :
 
@@ -173,6 +242,87 @@ register("mon-modele", lambda settings: MonModele())
 ```
 
 Il apparaît alors dans l'interface et dans `/api/info`.
+
+## Limite par utilisateur
+
+Un utilisateur peut avoir au plus 5 traitements en attente ou en cours en même
+temps (`SUBTITLER_MAX_JOBS_PER_USER`). Au-delà, l'envoi est refusé avec le
+code HTTP 429 et le message « Vous avez déjà 5 traitements en cours » ;
+l'interface prévient avant même d'envoyer le fichier. Dès qu'un traitement se
+termine (réussi ou en échec), une place se libère.
+
+Ces 5 traitements ne tournent pas tous en même temps : un seul est actif, les
+autres attendent leur tour, pour que les workers restent disponibles pour les
+autres utilisateurs.
+
+- **Pourquoi** : sans limite, un seul utilisateur qui envoie 50 vidéos
+  occupe toute la file d'attente et les autres attendent derrière lui. La
+  limite garantit qu'avec 10 utilisateurs actifs, chacun garde sa place.
+- La limite est vérifiée avant l'enregistrement du fichier (pas de transfert
+  inutile), puis à nouveau juste avant la mise en file, sous verrou, pour que
+  deux envois parallèles du même utilisateur ne puissent pas la dépasser.
+- Un traitement retiré de l'historique compte toujours tant qu'il tourne.
+- Le parallélisme effectif (combien de traitements tournent réellement en
+  même temps, tous utilisateurs confondus) est réglé par
+  `SUBTITLER_WORKERS`, selon la mémoire GPU disponible.
+
+## Annulation
+
+Un bouton « Annuler » apparaît sur chaque traitement en attente ou en cours
+(`POST /api/jobs/{id}/cancel`, propriétaire ou administrateur). Le traitement
+passe aussitôt à l'état « Annulé » et ne compte plus dans la limite des 5
+traitements simultanés.
+
+- **En attente** : il est retiré de la file, il ne démarrera jamais.
+- **En cours** : l'annulation est prise en compte entre deux étapes
+  (extraction audio, transcription, identification du locuteur, génération du
+  résultat). Une étape déjà lancée — notamment la transcription Whisper —
+  ne peut pas être interrompue en plein calcul : elle se termine, puis son
+  résultat est jeté. Le GPU peut donc rester occupé quelques instants après
+  l'annulation.
+- Les traitements annulés apparaissent dans les statistiques d'administration
+  (colonne « Annulés »), séparément des échecs. Le fichier envoyé reste
+  conservé, comme les autres, jusqu'à la purge des 6 mois.
+
+## Historique et consentement
+
+- **Consentement** : une case facultative du formulaire d'envoi permet à
+  l'utilisateur d'accepter que son fichier soit conservé à des fins d'analyse
+  et de correction de la transcription. Elle n'est pas obligatoire : selon le
+  RGPD, un consentement n'est valable que s'il est libre, donc le refuser ne
+  doit pas empêcher d'utiliser le service. Le choix et sa date sont
+  enregistrés avec le traitement (`consent`, `consent_at`) ; seuls les
+  fichiers avec `consent = true` peuvent servir à l'analyse.
+- **Suppression** : « Supprimer » et « Tout supprimer » retirent les
+  traitements de l'historique de l'utilisateur (`hidden_at`), qui ne peut plus
+  y accéder. Rien n'est effacé sur le serveur : fichiers et résultats restent
+  sauvegardés jusqu'à la purge des 6 mois, et l'administrateur les voit
+  toujours, marqués « retiré par l'utilisateur ».
+
+## Comptes utilisateurs
+
+Chaque utilisateur se connecte avec un identifiant et un mot de passe (page
+`login.html`, ou création de compte si `SUBTITLER_ALLOW_SIGNUP` le permet). Il
+ne voit et ne télécharge que ses propres traitements, et retrouve son
+historique sur n'importe quel appareil (il était auparavant gardé dans le
+navigateur). Le compte administrateur, défini par variables d'environnement,
+voit tous les traitements et les statistiques.
+
+- **Mots de passe** : hachés avec scrypt (bibliothèque standard Python, sel
+  aléatoire par compte) ; jamais stockés en clair.
+- **Sessions** : jeton aléatoire envoyé dans un cookie `HttpOnly` +
+  `SameSite=Lax` (illisible par JavaScript, non envoyé par un autre site), ou
+  dans l'en-tête `Authorization: Bearer` pour les scripts. Seule l'empreinte
+  SHA-256 du jeton est stockée en base ; les sessions expirent après
+  `SUBTITLER_SESSION_DAYS` jours.
+- **Pourquoi pas un fournisseur d'identité externe (Keycloak, Auth0, SSO)** :
+  plus lourd à installer, et Auth0 enverrait des données hors de
+  l'infrastructure, contraire au besoin « 100 % en interne ». Les comptes
+  locaux suffisent pour le besoin ; un SSO d'entreprise pourra être branché
+  plus tard devant l'API.
+- Les traitements créés avant l'ajout des comptes n'ont pas de propriétaire :
+  seul l'administrateur les voit.
+- En production derrière HTTPS, le cookie devra aussi être marqué `Secure`.
 
 ## Identification du locuteur (diarization)
 
@@ -222,13 +372,25 @@ transcription : implémenter `Diarizer.diarize()`.
 
 ### Parallélisme (tenue à 10 utilisateurs simultanés)
 
-L'architecture existante (file d'attente `JobStore` + pool de threads
-`JobWorker`, taille réglée par `SUBTITLER_WORKERS`) traite déjà N jobs en
-parallèle, un thread par worker. `tests/test_concurrency.py` le démontre
-structurellement, sans GPU : 5 jobs à délai fixe soumis en même temps se
-terminent en ~1x ce délai, pas 5x. Ce qui reste à valider, c'est la capacité
-GPU réelle derrière chaque worker — un thread ne sert à rien si un seul GPU
-physique doit déjà traiter plusieurs vidéos à la fois.
+L'architecture (file d'attente `JobStore` + pool de threads `JobWorker`,
+taille réglée par `SUBTITLER_WORKERS`) traite N jobs en parallèle, un thread
+par worker, et la transcription elle-même est parallèle : `WhisperTranscriber`
+charge jusqu'à N exemplaires du modèle (à la demande) et chaque thread en
+réserve un pendant sa transcription. La file (`FairQueue`) ne donne
+qu'un worker à la fois à chaque utilisateur et sert les utilisateurs à tour de
+rôle : aucun ne peut monopoliser les workers en envoyant plusieurs fichiers.
+`tests/test_concurrency.py` et `tests/test_scheduling.py` le démontrent sans
+GPU : 5 jobs à délai fixe soumis en même temps se terminent en ~1x ce délai,
+pas 5x.
+
+Limite à connaître : sur **un seul GPU**, plusieurs exemplaires tournent en
+même temps mais se partagent sa puissance de calcul. Chaque traitement
+avance, mais un peu moins vite que s'il était seul ; le gain vient surtout
+de ce que le GPU est mal occupé par une seule transcription (génération mot
+par mot). Le nombre de workers est borné par la mémoire GPU : ~1,5 Go par
+exemplaire de `whisper-medium.en` en float16, donc 2 à 3 sur une carte de
+8 Go. Au-delà, il faut plusieurs GPU ou `faster-whisper` (modèle plus léger,
+voir ci-dessous).
 
 `scripts/load_test.py` permet de mesurer, sur le matériel cible, le temps de
 traitement bout en bout pour N requêtes simultanées et de le comparer à la
@@ -237,6 +399,9 @@ durée de l'échantillon :
 ```bash
 python scripts/load_test.py poc/input.mp4 --concurrency 10
 ```
+
+Chaque utilisateur simulé utilise son propre compte (`loadtest-0` à
+`loadtest-9`, créés automatiquement), comme 10 vrais utilisateurs.
 
 ### Technologies retenues pour tenir la charge au coût visé
 

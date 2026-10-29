@@ -9,6 +9,11 @@ un vrai temps de traitement GPU : à lancer à la main sur le matériel cible.
 Usage :
     python -m subtitler &                    # démarrer l'instance à tester
     python scripts/load_test.py poc/input.mp4 --concurrency 10
+
+Chaque utilisateur simulé a son propre compte (``<username>-0``,
+``<username>-1``, ..., créés s'ils n'existent pas et si l'inscription est
+ouverte) : un seul compte serait bloqué par la limite de traitements
+simultanés par utilisateur.
 """
 
 import argparse
@@ -20,12 +25,25 @@ from pathlib import Path
 import httpx
 
 
-def submit_and_wait(base_url: str, file_path: Path, output_kind: str, timeout: float) -> dict:
+def login(base_url: str, username: str, password: str) -> dict:
+    """Renvoie l'en-tête d'authentification à joindre aux requêtes."""
+    credentials = {"username": username, "password": password}
+    response = httpx.post(f"{base_url}/api/auth/login", json=credentials, timeout=30)
+    if response.status_code == 401:
+        response = httpx.post(f"{base_url}/api/auth/register", json=credentials, timeout=30)
+    response.raise_for_status()
+    return {"Authorization": f"Bearer {response.json()['token']}"}
+
+
+def submit_and_wait(
+    base_url: str, headers: dict, file_path: Path, output_kind: str, timeout: float,
+) -> dict:
     with file_path.open("rb") as file:
         response = httpx.post(
             f"{base_url}/api/jobs",
             files={"file": (file_path.name, file)},
             data={"output_kind": output_kind},
+            headers=headers,
             timeout=60,
         )
     response.raise_for_status()
@@ -34,7 +52,7 @@ def submit_and_wait(base_url: str, file_path: Path, output_kind: str, timeout: f
     started = time.perf_counter()
     deadline = started + timeout
     while time.perf_counter() < deadline:
-        job = httpx.get(f"{base_url}/api/jobs/{job_id}", timeout=30).json()
+        job = httpx.get(f"{base_url}/api/jobs/{job_id}", headers=headers, timeout=30).json()
         if job["status"] in ("done", "failed"):
             job["_wall_time"] = time.perf_counter() - started
             return job
@@ -49,13 +67,16 @@ def main() -> None:
     parser.add_argument("--output-kind", default="text", help="video_embedded/video_track/subtitles/text")
     parser.add_argument("--concurrency", type=int, default=10, help="Nombre d'utilisateurs simultanés")
     parser.add_argument("--timeout", type=float, default=600.0, help="Timeout par job, en secondes")
+    parser.add_argument("--username", default="loadtest", help="Préfixe des comptes utilisés pour les envois")
+    parser.add_argument("--password", default="loadtest-password", help="Mot de passe de ces comptes")
     args = parser.parse_args()
+    accounts = [login(args.url, f"{args.username}-{index}", args.password) for index in range(args.concurrency)]
 
     print(f"Envoi de {args.concurrency} requêtes simultanées vers {args.url} ({args.file.name}) ...")
     with ThreadPoolExecutor(max_workers=args.concurrency) as pool:
         futures = [
-            pool.submit(submit_and_wait, args.url, args.file, args.output_kind, args.timeout)
-            for _ in range(args.concurrency)
+            pool.submit(submit_and_wait, args.url, headers, args.file, args.output_kind, args.timeout)
+            for headers in accounts
         ]
         results = []
         for future in as_completed(futures):
