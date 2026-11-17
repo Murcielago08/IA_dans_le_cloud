@@ -93,7 +93,7 @@ def _whisper(model_id: str) -> TranscriberFactory:
 # les autres langues utilisent les variantes multilingues.
 register(
     "whisper-small.en", _whisper("openai/whisper-small.en"), "Rapide",
-    "Le plus rapide, idéal pour un premier jet. Anglais uniquement.", ("en",),
+    "Le plus rapide, idéal pour un premier jet.", ("en",),
 )
 register(
     "whisper-small", _whisper("openai/whisper-small"), "Rapide",
@@ -101,7 +101,7 @@ register(
 )
 register(
     "whisper-medium.en", _whisper("openai/whisper-medium.en"), "Équilibré",
-    "Bon compromis entre vitesse et précision. Anglais uniquement.", ("en",),
+    "Bon compromis entre vitesse et précision.", ("en",),
 )
 register(
     "whisper-medium", _whisper("openai/whisper-medium"), "Équilibré",
