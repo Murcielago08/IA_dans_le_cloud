@@ -1,0 +1,7 @@
+# Dépendances de l'application (image Docker, serveur).
+# torch s'installe à part, depuis l'index PyTorch adapté au matériel (GPU CUDA
+# ou CPU) : voir le Dockerfile et la section Installation du README.
+fastapi==0.142.4
+uvicorn==0.54.0
+python-multipart==0.0.32
+transformers==5.18.0

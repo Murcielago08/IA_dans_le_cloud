@@ -66,10 +66,19 @@ class WhisperTranscriber(Transcriber):
         if self._loaded == 0:
             self._free.put(self._acquire())
 
-    def transcribe(self, audio_path: Path) -> list[Segment]:
+    @property
+    def english_only(self) -> bool:
+        # Les modèles « .en » refusent le paramètre de langue.
+        return self.model_id.endswith(".en")
+
+    def transcribe(self, audio_path: Path, language: str | None = None) -> list[Segment]:
+        options = {}
+        if language and not self.english_only:
+            # Imposer la langue évite une mauvaise détection sur un début silencieux ou bruité.
+            options["generate_kwargs"] = {"language": language, "task": "transcribe"}
         pipeline = self._acquire()
         try:
-            result = pipeline(str(audio_path), return_timestamps=True)
+            result = pipeline(str(audio_path), return_timestamps=True, **options)
         finally:
             self._free.put(pipeline)
         return chunks_to_segments(result.get("chunks", []))

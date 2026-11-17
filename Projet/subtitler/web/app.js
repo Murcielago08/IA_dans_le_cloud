@@ -9,7 +9,11 @@ const fileInput = document.getElementById("file");
 const drop = document.getElementById("drop");
 const dropTitle = document.getElementById("drop-title");
 const dropHint = document.getElementById("drop-hint");
-const modelSelect = document.getElementById("model");
+const modelInput = document.getElementById("model");
+const languageInput = document.getElementById("language");
+const modelDialog = document.getElementById("model-dialog");
+const dialogLanguage = document.getElementById("dialog-language");
+const dialogModels = document.getElementById("dialog-models");
 const submitButton = document.getElementById("submit");
 const progress = document.getElementById("progress");
 const message = document.getElementById("message");
@@ -31,6 +35,8 @@ let pageSize = 5;
 let total = 0; // nombre de traitements dans tout l'historique
 let maxUploadMb = 500;
 let maxJobsPerUser = 5;
+let models = []; // catalogue renvoyé par /api/info
+let languages = {}; // code -> nom affiché
 
 // --- Formulaire ---
 
@@ -119,6 +125,92 @@ async function onSubmit(event) {
 function isActive(job) {
   // Un état inconnu (null) sera redemandé au prochain passage.
   return !job || job.status === "pending" || job.status === "running";
+}
+
+// --- Choix de la langue et du modèle ---
+
+function modelInfo(name) {
+  return models.find((model) => model.name === name);
+}
+
+function supports(model, language) {
+  return language === "auto" || model.languages === null || model.languages.includes(language);
+}
+
+// Modèles proposés pour une langue : un seul par nom affiché (Rapide, Équilibré...).
+// Si une variante est spécialisée dans cette langue (ex : « .en » pour l'anglais),
+// elle est préférée ; sinon, la variante multilingue.
+function modelsFor(language) {
+  const byLabel = new Map();
+  for (const model of models.filter((candidate) => supports(candidate, language))) {
+    const current = byLabel.get(model.label);
+    const specialized = model.languages?.includes(language);
+    const currentIsSpecialized = current?.languages?.includes(language);
+    const multilingualForAuto = language === "auto" && model.languages === null;
+    if (!current || (specialized && !currentIsSpecialized) || multilingualForAuto) byLabel.set(model.label, model);
+  }
+  return [...byLabel.values()];
+}
+
+// Garde le niveau choisi (même nom affiché) quand la langue change.
+function pickModel(language, preferredName) {
+  const candidates = modelsFor(language);
+  const preferred = modelInfo(preferredName);
+  return candidates.find((model) => model.name === preferredName)
+    || candidates.find((model) => model.label === preferred?.label)
+    || candidates[0];
+}
+
+function applyChoice(modelName, language) {
+  const model = pickModel(language, modelName);
+  modelInput.value = model.name;
+  languageInput.value = language;
+  document.getElementById("summary-model").textContent = model.label;
+  document.getElementById("summary-language").textContent = languages[language];
+  document.getElementById("summary-description").textContent = model.description;
+}
+
+function renderDialogModels(selectedName) {
+  const language = dialogLanguage.value;
+  const selected = pickModel(language, selectedName);
+  dialogModels.replaceChildren(...modelsFor(language).map((model) => {
+    const card = document.createElement("label");
+    card.className = "output";
+    const radio = Object.assign(document.createElement("input"), {
+      type: "radio", name: "dialog-model", value: model.name, checked: model.name === selected.name,
+    });
+    const title = document.createElement("b");
+    title.textContent = model.label;
+    const description = document.createElement("small");
+    description.textContent = model.description;
+    const id = document.createElement("small");
+    id.className = "model-id";
+    id.textContent = model.name;
+    card.append(radio, title, description, id);
+    return card;
+  }));
+}
+
+function dialogSelection() {
+  return dialogModels.querySelector("input:checked")?.value;
+}
+
+function openModelDialog() {
+  dialogLanguage.value = languageInput.value;
+  renderDialogModels(modelInput.value);
+  modelDialog.showModal();
+}
+
+function setupModelDialog(info) {
+  models = info.model_details;
+  languages = info.languages;
+  dialogLanguage.replaceChildren(...Object.entries(languages).map(([code, name]) => new Option(name, code)));
+  dialogLanguage.addEventListener("change", () => renderDialogModels(dialogSelection()));
+  document.getElementById("open-model-dialog").addEventListener("click", openModelDialog);
+  modelDialog.addEventListener("close", () => {
+    if (modelDialog.returnValue === "ok") applyChoice(dialogSelection(), dialogLanguage.value);
+  });
+  applyChoice(info.default_model, info.default_language);
 }
 
 // --- Pagination ---
@@ -244,7 +336,12 @@ async function deleteAll() {
 
 function updateJobElement(element, job) {
   element.querySelector(".job-name").textContent = job.filename;
-  const meta = [OUTPUT_LABELS[job.output_kind], job.model, formatDate(job.created_at)];
+  const meta = [
+    OUTPUT_LABELS[job.output_kind],
+    modelInfo(job.model)?.label ?? job.model,
+    languages[job.language] ?? job.language,
+    formatDate(job.created_at),
+  ];
   if (job.media_duration) meta.push(`durée ${formatSeconds(job.media_duration)}`);
   if (job.processing_time != null) meta.push(`traité en ${formatSeconds(job.processing_time)}`);
   element.querySelector(".job-meta").textContent = meta.join(" · ");
@@ -259,6 +356,9 @@ function updateJobElement(element, job) {
   const download = element.querySelector(".download-btn");
   download.hidden = !done;
   download.href = `/api/jobs/${job.id}/result`;
+
+  // Piste de sous-titres intégrée au MP4 : tous les lecteurs ne l'affichent pas.
+  element.querySelector(".job-hint").hidden = !(done && job.output_kind === "video_track");
 
   const error = element.querySelector(".job-error");
   error.hidden = job.status !== "failed";
@@ -289,7 +389,8 @@ async function buildPreview(job) {
       // Les navigateurs n'affichent pas les pistes intégrées au MP4 :
       // on fournit la même piste au format WebVTT.
       const track = document.createElement("track");
-      Object.assign(track, { kind: "subtitles", label: "Sous-titres", srclang: "en", default: true });
+      const srclang = job.language === "auto" ? "und" : job.language;
+      Object.assign(track, { kind: "subtitles", label: "Sous-titres", srclang, default: true });
       track.src = `/api/jobs/${job.id}/subtitles.vtt`;
       video.append(track);
     }
@@ -367,7 +468,7 @@ async function init() {
     const info = await api("/api/info");
     maxUploadMb = info.max_upload_mb;
     maxJobsPerUser = info.max_jobs_per_user;
-    modelSelect.replaceChildren(...info.models.map((name) => new Option(name, name, false, name === info.default_model)));
+    setupModelDialog(info);
   } catch (error) {
     showMessage(`Le serveur ne répond pas : ${error.message}`);
   }

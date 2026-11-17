@@ -23,8 +23,12 @@ class Transcriber(ABC):
     """
 
     @abstractmethod
-    def transcribe(self, audio_path: Path) -> list[Segment]:
-        """Transcrit un fichier audio WAV mono 16 kHz."""
+    def transcribe(self, audio_path: Path, language: str | None = None) -> list[Segment]:
+        """Transcrit un fichier audio WAV mono 16 kHz.
+
+        ``language`` : code ISO 639-1 (« fr », « en »...) choisi par
+        l'utilisateur, ou None pour laisser le modèle détecter la langue.
+        """
 
     def warm_up(self) -> None:
         """Charge le modèle à l'avance pour que la première demande ne l'attende pas."""

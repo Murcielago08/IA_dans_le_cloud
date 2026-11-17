@@ -74,6 +74,14 @@ def test_register_login_logout(anonymous):
     assert me.json() == {"id": created.json()["user"]["id"], "username": "alice", "is_admin": False}
 
 
+def test_secure_cookie_option(tmp_path, transcriber):
+    for secure in (False, True):
+        settings = Settings(data_dir=tmp_path / f"data-{secure}", device="cpu", secure_cookies=secure)
+        with TestClient(create_app(settings, transcriber_factory=lambda name: transcriber)) as client:
+            response = client.post("/api/auth/register", json={"username": "alice", "password": PASSWORD})
+            assert ("secure" in response.headers["set-cookie"].lower()) is secure
+
+
 def test_signup_can_be_disabled(tmp_path, transcriber):
     settings = Settings(data_dir=tmp_path / "data", device="cpu", allow_signup=False)
     with TestClient(create_app(settings, transcriber_factory=lambda name: transcriber)) as client:

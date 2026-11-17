@@ -1,0 +1,11 @@
+# Reverse proxy HTTPS devant Subtitler.
+# Caddy obtient et renouvelle seul le certificat (Let's Encrypt) pour $DOMAIN,
+# qui doit pointer (DNS) vers l'adresse IP du serveur.
+{$DOMAIN} {
+	# Les fichiers envoyés peuvent être lourds (SUBTITLER_MAX_UPLOAD_MB).
+	request_body {
+		max_size 600MB
+	}
+	reverse_proxy subtitler:8000
+	encode gzip
+}

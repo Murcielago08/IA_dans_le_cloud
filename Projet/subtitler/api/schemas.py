@@ -14,6 +14,7 @@ class JobOut(BaseModel):
     input_kind: InputKind
     output_kind: OutputKind
     model: str
+    language: str
     status: JobStatus
     created_at: datetime
     media_duration: float | None
@@ -53,12 +54,23 @@ class LoginOut(BaseModel):
     token: str  # pour les clients API (en-tête « Authorization: Bearer ») ; le navigateur utilise le cookie
 
 
+class ModelOut(BaseModel):
+    name: str
+    label: str
+    description: str
+    languages: list[str] | None  # None : toutes les langues
+
+
 class AppInfo(BaseModel):
     models: list[str]
+    model_details: list[ModelOut]
+    languages: dict[str, str]  # code -> nom affiché
     default_model: str
+    default_language: str
     allowed_outputs: dict[InputKind, list[OutputKind]]
     max_upload_mb: int
     max_jobs_per_user: int
+    retention_days: int
     speakers_enabled: bool
     signup_enabled: bool
 

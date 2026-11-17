@@ -76,7 +76,7 @@ class BlockingTranscriber(Transcriber):
         self.started = threading.Event()
         self.release = threading.Event()
 
-    def transcribe(self, audio_path):
+    def transcribe(self, audio_path, language=None):
         self.started.set()
         self.release.wait(timeout=10)
         return FAKE_SEGMENTS

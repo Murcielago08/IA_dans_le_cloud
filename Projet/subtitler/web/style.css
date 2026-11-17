@@ -206,6 +206,30 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .message { margin: 14px 0 0; padding: 10px 12px; border-radius: 8px; background: var(--err-soft); color: var(--err); }
 
+/* Choix de la langue et du modèle */
+.model-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.model-summary small { display: block; color: var(--muted); font-size: 13px; }
+
+.dialog {
+  width: min(640px, calc(100% - 32px));
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+}
+.dialog::backdrop { background: rgb(0 0 0 / 0.45); }
+.dialog h2 { margin-bottom: 4px; }
+.output .model-id { display: block; margin-top: 4px; font: 12px ui-monospace, Consolas, monospace; color: var(--muted); }
+
 /* Liste des traitements */
 .jobs { list-style: none; margin: 0; padding: 0; }
 .job { padding: 14px 0; border-top: 1px solid var(--border); }
@@ -215,6 +239,8 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .job-meta { color: var(--muted); font-size: 13px; }
 .job-actions { margin-left: auto; display: flex; gap: 8px; }
 .job-error { color: var(--err); font-size: 13px; margin-top: 6px; }
+.job-hint { margin: 8px 0 0; padding: 8px 12px; border-radius: 8px; background: var(--accent-soft); color: var(--text); font-size: 13px; }
+.job-hint a { color: var(--accent); font-weight: 600; }
 .empty { color: var(--muted); margin: 0; }
 .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .section-head h2 { margin: 0; }

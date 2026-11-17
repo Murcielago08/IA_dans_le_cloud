@@ -1,0 +1,30 @@
+# Lancement : docker compose up -d --build
+# Prérequis : copier .env.example en .env et y définir le compte administrateur.
+# Sans GPU NVIDIA : docker compose -f compose.yaml -f compose.cpu.yaml up -d --build
+
+services:
+  subtitler:
+    build: .
+    image: subtitler:latest
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - subtitler-data:/app/data
+      - subtitler-models:/app/cache/huggingface
+    # Relance automatique après un crash ou un redémarrage de la machine ; les
+    # traitements interrompus reprennent au démarrage.
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  subtitler-data:
+  subtitler-models:

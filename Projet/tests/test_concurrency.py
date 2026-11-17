@@ -27,7 +27,7 @@ WORKERS = 5
 class SlowTranscriber(Transcriber):
     """Simule un temps de traitement GPU fixe, pour mesurer le parallélisme."""
 
-    def transcribe(self, audio_path):
+    def transcribe(self, audio_path, language=None):
         time.sleep(DELAY)
         return FAKE_SEGMENTS
 

@@ -1,0 +1,19 @@
+.git
+.gitignore
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+
+# Secrets : ne jamais les embarquer dans l'image
+.env
+
+# Données et modèles : montés en volume au lancement
+data/
+
+# Inutile dans l'image
+tests/
+scripts/
+poc/
+*.pdf
+*.md

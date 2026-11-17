@@ -159,10 +159,36 @@ async function refresh() {
   refreshTimer = setTimeout(refresh, REFRESH_MS);
 }
 
+// --- Conservation des données ---
+
+async function setupRetention() {
+  const text = document.getElementById("retention-text");
+  const button = document.getElementById("purge");
+  try {
+    const info = await api("/api/info");
+    text.textContent = `Les traitements terminés (fichier envoyé, résultats et historique) sont supprimés `
+      + `automatiquement ${info.retention_days} jours après leur envoi. Vérification toutes les heures.`;
+  } catch { /* le texte par défaut reste affiché */ }
+  button.addEventListener("click", async () => {
+    if (!confirm("Supprimer dès maintenant les traitements qui ont dépassé la durée de conservation ?")) return;
+    button.disabled = true;
+    try {
+      const { deleted } = await api("/api/admin/purge", { method: "POST" });
+      alert(deleted ? `${deleted} traitement(s) supprimé(s).` : "Aucun traitement à supprimer.");
+      refresh();
+    } catch (error) {
+      alert(`La purge a échoué : ${error.message}`);
+    } finally {
+      button.disabled = false;
+    }
+  });
+}
+
 requireUser()
   .then((user) => {
     if (user.is_admin) {
       setupPageSize();
+      setupRetention();
       refresh();
     } else {
       const message = document.getElementById("message");

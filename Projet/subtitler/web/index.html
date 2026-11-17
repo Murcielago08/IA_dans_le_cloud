@@ -43,7 +43,7 @@
         <label class="output">
           <input type="radio" name="output_kind" value="video_track" data-video-only>
           <b>Vidéo + piste</b>
-          <small>Sous-titres activables dans le lecteur</small>
+          <small>Sous-titres activables dans le lecteur (VLC recommandé)</small>
         </label>
         <label class="output">
           <input type="radio" name="output_kind" value="subtitles" checked>
@@ -57,8 +57,16 @@
         </label>
       </div>
 
-      <label class="label" for="model">3. Modèle</label>
-      <select id="model" name="model"></select>
+      <span class="label">3. Langue et modèle</span>
+      <div class="model-summary">
+        <div>
+          <b id="summary-model">—</b> · <span id="summary-language">—</span>
+          <small id="summary-description"></small>
+        </div>
+        <button type="button" class="btn-ghost" id="open-model-dialog">Changer</button>
+      </div>
+      <input type="hidden" name="model" id="model">
+      <input type="hidden" name="language" id="language">
 
       <label class="consent">
         <input type="checkbox" name="consent" value="true">
@@ -99,6 +107,22 @@
     </section>
   </main>
 
+  <dialog class="dialog" id="model-dialog">
+    <form method="dialog">
+      <h2>Langue et modèle</h2>
+      <label class="label" for="dialog-language">Langue parlée dans le fichier</label>
+      <select id="dialog-language"></select>
+
+      <span class="label">Modèle</span>
+      <div class="outputs" id="dialog-models"></div>
+
+      <div class="actions">
+        <button type="submit" value="ok">Valider</button>
+        <button type="submit" value="cancel" class="btn-ghost">Annuler</button>
+      </div>
+    </form>
+  </dialog>
+
   <template id="job-template">
     <li class="job">
       <div class="job-head">
@@ -115,6 +139,12 @@
         </div>
       </div>
       <div class="job-error" hidden></div>
+      <p class="job-hint" hidden>
+        Pour voir les sous-titres du fichier téléchargé, ouvrez-le avec
+        <a href="https://www.videolan.org/vlc/" target="_blank" rel="noopener">VLC</a>
+        (gratuit), puis menu <b>Sous-titres → Piste de sous-titres</b> si elles ne s'affichent pas.
+        Le lecteur vidéo de Windows ou du navigateur peut ne pas les afficher.
+      </p>
       <div class="preview" hidden></div>
     </li>
   </template>

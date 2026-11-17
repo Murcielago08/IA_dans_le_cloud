@@ -16,11 +16,12 @@ from fastapi.staticfiles import StaticFiles
 
 from subtitler import __version__, media
 from subtitler import transcription
-from subtitler.api.schemas import AppInfo, Credentials, JobOut, LoginOut, Stats, UserOut
+from subtitler.api.schemas import AppInfo, Credentials, JobOut, LoginOut, ModelOut, Stats, UserOut
 from subtitler.config import Settings
 from subtitler.jobs.models import (
     ALLOWED_OUTPUTS, RESULT_FILENAMES, InputKind, Job, JobStatus, OutputKind,
 )
+from subtitler.jobs.retention import RetentionTask, purge_expired
 from subtitler.jobs.store import JobStore
 from subtitler.jobs.worker import JobWorker
 from subtitler.transcription.base import Transcriber
@@ -88,6 +89,7 @@ def create_app(
     )
     # Rend atomiques la vérification de la limite par utilisateur et l'ajout du job.
     submit_lock = threading.Lock()
+    retention = RetentionTask(store, settings.jobs_dir, settings.retention_days)
     worker = JobWorker(store, settings.jobs_dir, models.get, settings.workers, diarizer)
 
     def warm_up_default_model() -> None:
@@ -102,7 +104,9 @@ def create_app(
         # En arrière-plan : le serveur répond pendant le chargement du modèle.
         threading.Thread(target=warm_up_default_model, daemon=True).start()
         worker.start()
+        retention.start()
         yield
+        retention.stop()
         worker.stop()
 
     app = FastAPI(title="Subtitler", version=__version__, lifespan=lifespan)
@@ -138,7 +142,7 @@ def create_app(
         token = users.open_session(user)
         response.set_cookie(
             SESSION_COOKIE, token, max_age=settings.session_days * 86400,
-            httponly=True, samesite="lax",
+            httponly=True, samesite="lax", secure=settings.secure_cookies,
         )
         return LoginOut(user=UserOut.from_user(user), token=token)
 
@@ -150,10 +154,20 @@ def create_app(
     def info() -> AppInfo:
         return AppInfo(
             models=transcription.available_models(),
+            model_details=[
+                ModelOut(
+                    name=model.name, label=model.label, description=model.description,
+                    languages=list(model.languages) if model.languages else None,
+                )
+                for model in transcription.model_infos()
+            ],
+            languages=transcription.LANGUAGES,
             default_model=settings.default_model,
+            default_language=settings.default_language,
             allowed_outputs={kind: list(outputs) for kind, outputs in ALLOWED_OUTPUTS.items()},
             max_upload_mb=settings.max_upload_mb,
             max_jobs_per_user=settings.max_jobs_per_user,
+            retention_days=settings.retention_days,
             speakers_enabled=settings.enable_speakers,
             signup_enabled=settings.allow_signup,
         )
@@ -199,11 +213,22 @@ def create_app(
         file: UploadFile = File(...),
         output_kind: OutputKind = Form(...),
         model: str | None = Form(None),
+        language: str | None = Form(None),
         consent: bool = Form(False),
     ) -> JobOut:
         model = model or settings.default_model
+        language = language or settings.default_language
         if model not in transcription.available_models():
             raise HTTPException(400, f"Modèle inconnu : {model}")
+        if language not in transcription.LANGUAGES:
+            raise HTTPException(400, f"Langue non prise en charge : {language}")
+        model_info = transcription.get_info(model)
+        if not model_info.supports(language):
+            raise HTTPException(
+                400,
+                f"Le modèle « {model_info.label} » ({model}) ne gère pas la langue "
+                f"« {transcription.LANGUAGES[language]} »",
+            )
         extension = Path(file.filename or "").suffix.lower()
         if extension not in ACCEPTED_EXTENSIONS:
             raise HTTPException(400, "Seuls les fichiers .mp4 et .wav sont acceptés")
@@ -243,6 +268,7 @@ def create_app(
             user_id=user.id,
             consent=consent,
             consent_at=datetime.now(timezone.utc) if consent else None,
+            language=language,
         )
         with submit_lock:
             # Seconde vérification : des envois parallèles du même utilisateur ont
@@ -326,6 +352,11 @@ def create_app(
     def subtitles_vtt(job_id: str, user: CurrentUser) -> FileResponse:
         path = done_job_file(get_job_or_404(job_id, user), "subtitles.vtt")
         return FileResponse(path, media_type="text/vtt")
+
+    @app.post("/api/admin/purge")
+    def purge(_: AdminUser) -> dict:
+        """Lance la purge des données expirées sans attendre le passage automatique."""
+        return {"deleted": purge_expired(store, settings.jobs_dir, settings.retention_days)}
 
     @app.get("/api/stats")
     def stats(_: AdminUser) -> Stats:

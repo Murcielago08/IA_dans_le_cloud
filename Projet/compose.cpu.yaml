@@ -1,0 +1,14 @@
+# Variante sans GPU (machine de test, CI) : image PyTorch CPU, pas de
+# réservation de GPU. Transcription beaucoup plus lente.
+#   docker compose -f compose.yaml -f compose.cpu.yaml up -d --build
+
+services:
+  subtitler:
+    build:
+      args:
+        TORCH_INDEX: https://download.pytorch.org/whl/cpu
+    image: subtitler:cpu
+    environment:
+      SUBTITLER_DEVICE: cpu
+      SUBTITLER_WORKERS: "1"
+    deploy: !reset {}

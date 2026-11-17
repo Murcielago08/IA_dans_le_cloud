@@ -26,9 +26,11 @@ class FakeTranscriber(Transcriber):
     def __init__(self, error: Exception | None = None):
         self.error = error
         self.calls: list[Path] = []
+        self.languages: list[str | None] = []
 
-    def transcribe(self, audio_path: Path) -> list[Segment]:
+    def transcribe(self, audio_path: Path, language: str | None = None) -> list[Segment]:
         self.calls.append(audio_path)
+        self.languages.append(language)
         if self.error:
             raise self.error
         return FAKE_SEGMENTS

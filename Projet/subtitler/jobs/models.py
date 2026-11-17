@@ -53,6 +53,7 @@ class Job:
     processing_time: float | None = None
     text: str | None = None
     error: str | None = None
+    language: str = "auto"  # langue de l'audio choisie par l'utilisateur (ISO 639-1) ou « auto »
     user_id: str | None = None  # propriétaire ; None pour les jobs créés avant les comptes
     # Accord de l'utilisateur pour conserver le fichier à des fins d'analyse et de correction.
     consent: bool = False

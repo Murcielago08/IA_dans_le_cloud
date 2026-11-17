@@ -1,0 +1,28 @@
+# Production : HTTPS automatique avec Caddy devant l'application.
+#   DOMAIN=subtitler.example.com docker compose -f compose.yaml -f compose.prod.yaml up -d --build
+# L'application n'est plus exposée directement : seul Caddy écoute (80 et 443).
+
+services:
+  subtitler:
+    ports: !reset []
+    environment:
+      SUBTITLER_SECURE_COOKIES: "true"
+
+  caddy:
+    image: caddy:2.10
+    restart: unless-stopped
+    depends_on:
+      - subtitler
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?définir DOMAIN, le nom de domaine du serveur}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  caddy-data:
+  caddy-config:

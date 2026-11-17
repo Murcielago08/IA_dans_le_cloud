@@ -15,10 +15,12 @@ class Settings:
 
     data_dir: Path = Path("data")
     default_model: str = "whisper-medium.en"
+    default_language: str = "en"
     device: str = "cuda:0"
     workers: int = 2
     max_upload_mb: int = 500
     max_jobs_per_user: int = 5
+    retention_days: int = 183  # 6 mois
     enable_speakers: bool = False
     diarization_model: str = "pyannote/speaker-diarization-3.1"
     hf_token: str | None = None
@@ -26,6 +28,7 @@ class Settings:
     admin_password: str | None = None
     allow_signup: bool = True
     session_days: int = 7
+    secure_cookies: bool = False  # True derrière HTTPS : le cookie de session n'est jamais envoyé en clair
 
     @property
     def jobs_dir(self) -> Path:
@@ -41,10 +44,12 @@ class Settings:
         return cls(
             data_dir=Path(env.get("SUBTITLER_DATA_DIR", cls.data_dir)),
             default_model=env.get("SUBTITLER_DEFAULT_MODEL", cls.default_model),
+            default_language=env.get("SUBTITLER_DEFAULT_LANGUAGE", cls.default_language),
             device=env.get("SUBTITLER_DEVICE", cls.device),
             workers=int(env.get("SUBTITLER_WORKERS", cls.workers)),
             max_upload_mb=int(env.get("SUBTITLER_MAX_UPLOAD_MB", cls.max_upload_mb)),
             max_jobs_per_user=int(env.get("SUBTITLER_MAX_JOBS_PER_USER", cls.max_jobs_per_user)),
+            retention_days=int(env.get("SUBTITLER_RETENTION_DAYS", cls.retention_days)),
             enable_speakers=env.get("SUBTITLER_ENABLE_SPEAKERS", "").lower() in ("1", "true", "yes"),
             diarization_model=env.get("SUBTITLER_DIARIZATION_MODEL", cls.diarization_model),
             hf_token=env.get("SUBTITLER_HF_TOKEN", cls.hf_token),
@@ -52,4 +57,5 @@ class Settings:
             admin_password=env.get("SUBTITLER_ADMIN_PASSWORD", cls.admin_password),
             allow_signup=env.get("SUBTITLER_ALLOW_SIGNUP", "true").lower() in ("1", "true", "yes"),
             session_days=int(env.get("SUBTITLER_SESSION_DAYS", cls.session_days)),
+            secure_cookies=env.get("SUBTITLER_SECURE_COOKIES", "").lower() in ("1", "true", "yes"),
         )

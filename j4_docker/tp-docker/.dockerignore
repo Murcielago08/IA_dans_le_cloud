@@ -1,0 +1,16 @@
+.git
+.gitignore
+__pycache__/
+*.pyc
+.venv/
+
+# Secrets : ne jamais les embarquer dans l'image
+.env
+
+# Données et modèle : montés en volume au lancement (étape 3)
+data/
+models/
+
+# Inutile dans l'image
+*.pdf
+README.md

@@ -57,6 +57,18 @@ def extract_audio(source: Path, destination: Path) -> None:
     ])
 
 
+# Codes ISO 639-2 attendus par le conteneur MP4 pour la langue d'une piste.
+_ISO_639_2 = {
+    "fr": "fra", "en": "eng", "es": "spa", "de": "deu", "it": "ita", "pt": "por",
+    "nl": "nld", "ar": "ara", "zh": "zho", "ja": "jpn",
+}
+
+
+def track_language(language: str) -> str:
+    """Code de langue d'une piste de sous-titres (« und » : indéterminée)."""
+    return _ISO_639_2.get(language, "und")
+
+
 def add_subtitle_track(video: Path, srt: Path, destination: Path, language: str = "eng") -> None:
     """Ajoute les sous-titres comme piste désactivable, sans réencoder la vidéo."""
     _run([

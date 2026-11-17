@@ -13,6 +13,7 @@ from subtitler import subtitles
 from subtitler.jobs.models import RESULT_FILENAMES, OutputKind
 from subtitler.jobs.store import JobStore
 from subtitler.transcription.base import Transcriber
+from subtitler.transcription.registry import AUTO
 from subtitler.transcription.diarization import Diarizer, assign_speakers
 
 logger = logging.getLogger(__name__)
@@ -149,7 +150,7 @@ class JobWorker:
             return
         started = time.perf_counter()
         try:
-            text = self._run(job_id, job.output_kind, job.model)
+            text = self._run(job_id, job.output_kind, job.model, job.language)
         except JobCancelled:
             logger.info("Le job %s a été annulé", job_id)
             (self.jobs_dir / job_id / "audio.wav").unlink(missing_ok=True)
@@ -165,7 +166,7 @@ class JobWorker:
         if self.store.is_cancelled(job_id):
             raise JobCancelled
 
-    def _run(self, job_id: str, output_kind: OutputKind, model: str) -> str:
+    def _run(self, job_id: str, output_kind: OutputKind, model: str, language: str = AUTO) -> str:
         job_dir = self.jobs_dir / job_id
         source = find_input(job_dir)
         audio = job_dir / "audio.wav"
@@ -174,7 +175,7 @@ class JobWorker:
 
         media.extract_audio(source, audio)
         self._check_cancelled(job_id)
-        segments = self.get_transcriber(model).transcribe(audio)
+        segments = self.get_transcriber(model).transcribe(audio, None if language == AUTO else language)
         self._check_cancelled(job_id)
         if self.diarizer is not None:
             segments = assign_speakers(segments, self.diarizer.diarize(audio))
@@ -186,7 +187,7 @@ class JobWorker:
         if output_kind is OutputKind.VIDEO_EMBEDDED:
             media.burn_subtitles(source, srt, result)
         elif output_kind is OutputKind.VIDEO_TRACK:
-            media.add_subtitle_track(source, srt, result)
+            media.add_subtitle_track(source, srt, result, media.track_language(language))
         elif output_kind is OutputKind.SUBTITLES:
             shutil.copyfile(srt, result)
         else:

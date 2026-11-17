@@ -78,7 +78,7 @@ def test_closed_queue_releases_waiting_workers():
 
 
 class FakePipeline:
-    def __call__(self, audio_path, return_timestamps):
+    def __call__(self, audio_path, return_timestamps, **options):
         time.sleep(DELAY)
         return {"chunks": [{"text": "hello", "timestamp": (0.0, 1.0)}]}
 

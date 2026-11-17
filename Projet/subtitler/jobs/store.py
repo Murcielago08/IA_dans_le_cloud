@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     user_id TEXT,
     consent INTEGER NOT NULL DEFAULT 0,
     consent_at TEXT,
-    hidden_at TEXT
+    hidden_at TEXT,
+    language TEXT NOT NULL DEFAULT 'auto'
 );
 CREATE INDEX IF NOT EXISTS jobs_status ON jobs (status);
 """
@@ -40,6 +41,7 @@ _ADDED_COLUMNS = {
     "consent": "INTEGER NOT NULL DEFAULT 0",
     "consent_at": "TEXT",
     "hidden_at": "TEXT",
+    "language": "TEXT NOT NULL DEFAULT 'auto'",
 }
 
 
@@ -70,6 +72,7 @@ def _row_to_job(row: sqlite3.Row) -> Job:
         consent=bool(row["consent"]),
         consent_at=_parse_date(row["consent_at"]),
         hidden_at=_parse_date(row["hidden_at"]),
+        language=row["language"],
     )
 
 
@@ -101,11 +104,12 @@ class JobStore:
         with self._connect() as db:
             db.execute(
                 "INSERT INTO jobs (id, filename, input_kind, output_kind, model, status,"
-                " created_at, media_duration, user_id, consent, consent_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " created_at, media_duration, user_id, consent, consent_at, language)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (job.id, job.filename, job.input_kind, job.output_kind, job.model,
                  job.status, job.created_at.isoformat(), job.media_duration, job.user_id,
-                 int(job.consent), job.consent_at.isoformat() if job.consent_at else None),
+                 int(job.consent), job.consent_at.isoformat() if job.consent_at else None,
+                 job.language),
             )
 
     def get(self, job_id: str) -> Job | None:
@@ -149,6 +153,19 @@ class JobStore:
                 (_now().isoformat(), user_id),
             )
         return cursor.rowcount
+
+    def expired_ids(self, cutoff: datetime) -> list[str]:
+        """Jobs terminés (réussis, en échec ou annulés) créés avant ``cutoff``."""
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT id FROM jobs WHERE created_at < ? AND status NOT IN (?, ?)",
+                (cutoff.astimezone(timezone.utc).isoformat(), JobStatus.PENDING, JobStatus.RUNNING),
+            ).fetchall()
+        return [row["id"] for row in rows]
+
+    def delete(self, job_id: str) -> None:
+        with self._connect() as db:
+            db.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
 
     def count_unfinished(self, user_id: str) -> int:
         """Jobs en attente ou en cours d'un utilisateur, y compris ceux qu'il a masqués."""
